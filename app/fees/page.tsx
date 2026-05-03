@@ -139,6 +139,61 @@ export default function FeesPage() {
         return amount;
     };
 
+    const syncMonthlyTuitionTransaction = async (monthStr: string, updatedPayments: Record<string, MonthlyPayment>) => {
+        const monthNum = parseInt(monthStr.split('-')[1], 10);
+        const consolidatedTitle = `${monthNum}月分月謝`;
+        const txDate = `${monthStr}-01`;
+
+        // この月のpaid状態の生徒の合計を算出
+        const paidStudents = students.filter(s => {
+            const p = updatedPayments[s.id];
+            return p && p.status === 'paid';
+        });
+        const totalAmount = paidStudents.reduce((sum, s) => {
+            const p = updatedPayments[s.id];
+            return sum + (p?.amount || 0);
+        }, 0);
+
+        // 旧フォーマット（個別）のレコードをすべて削除
+        for (const s of students) {
+            const oldTitle1 = `月謝 (${s.name})`;
+            const oldTitle2 = `${monthNum}月分月謝 (${s.name})`;
+            const oldDesc = `${monthStr}分 月謝支払い`;
+            await supabase.from('transactions').delete()
+                .eq('category', 'school')
+                .eq('title', oldTitle1)
+                .eq('description', oldDesc);
+            await supabase.from('transactions').delete()
+                .eq('category', 'school')
+                .eq('title', oldTitle2)
+                .eq('description', oldDesc);
+        }
+
+        // 統合レコードを削除してから再作成
+        await supabase.from('transactions').delete()
+            .eq('category', 'school')
+            .eq('title', consolidatedTitle)
+            .eq('date', txDate);
+
+        if (totalAmount > 0 && paidStudents.length > 0) {
+            const paidNames = paidStudents.map(s => s.name).join('、');
+            const description = `受領済み ${paidStudents.length}名: ${paidNames}`;
+            const { error: transError } = await supabase.from('transactions').insert({
+                date: txDate,
+                title: consolidatedTitle,
+                amount: totalAmount,
+                category: 'school',
+                description: description
+            });
+            if (transError) {
+                console.error("Transaction sync error:", transError);
+                showToast("月謝は保存されましたが、会計への同期に失敗しました");
+                return false;
+            }
+        }
+        return true;
+    };
+
     const handleSave = async (studentId: string, updates: Partial<MonthlyPayment>) => {
         setIsSaving(true);
         const student = students.find(s => s.id === studentId);
@@ -153,57 +208,20 @@ export default function FeesPage() {
         };
         const updated = { ...current, ...updates };
 
-        const monthNum = parseInt(selectedMonth.split('-')[1], 10);
-        const title = `${monthNum}月分月謝 (${student?.name})`;
-        const oldTitle = `月謝 (${student?.name})`;
-        const description = `${selectedMonth}分 月謝支払い`;
-        const txDate = `${selectedMonth}-01`;
-
         try {
             const { data, error } = await supabase.from('tuition_payments').upsert(updated).select().single();
             if (error) throw error;
 
-            setPayments(prev => ({ ...prev, [studentId]: data }));
+            const newPayments = { ...payments, [studentId]: data };
+            setPayments(newPayments);
 
-            if (updates.status === 'paid') {
-                // 重複を防ぐため、事前に同じ月の同じ生徒の該当取引があれば削除しておく
-                await supabase.from('transactions').delete()
-                    .eq('category', 'school')
-                    .eq('title', title)
-                    .eq('description', description);
-                // 旧フォーマットのレコードも削除
-                await supabase.from('transactions').delete()
-                    .eq('category', 'school')
-                    .eq('title', oldTitle)
-                    .eq('description', description);
-
-                // 新たに取引（収入）として追加
-                const transaction = {
-                    date: txDate,
-                    title: title,
-                    amount: updated.amount,
-                    category: 'school',
-                    description: description
-                };
-                const { error: transError } = await supabase.from('transactions').insert(transaction);
-                if (transError) {
-                    console.error("Transaction sync error:", transError);
-                    showToast("月謝は保存されましたが、会計への同期に失敗しました");
+            if (updates.status === 'paid' || updates.status === 'billed') {
+                const synced = await syncMonthlyTuitionTransaction(selectedMonth, newPayments);
+                if (updates.status === 'paid') {
+                    showToast(synced ? "受取完了 ＆ 会計ページに反映しました" : "月謝は保存されましたが、会計への同期に失敗しました");
                 } else {
-                    showToast("受取完了 ＆ 会計ページに反映しました");
+                    showToast("ステータスを戻し、会計から取り消しました");
                 }
-            } else if (updates.status === 'billed') {
-                // 「戻す」場合は会計ページの履歴から削除する
-                await supabase.from('transactions').delete()
-                    .eq('category', 'school')
-                    .eq('title', title)
-                    .eq('description', description);
-                // 旧フォーマットのレコードも削除
-                await supabase.from('transactions').delete()
-                    .eq('category', 'school')
-                    .eq('title', oldTitle)
-                    .eq('description', description);
-                showToast("ステータスを戻し、会計から取り消しました");
             } else {
                 showToast("保存しました");
             }
