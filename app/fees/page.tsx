@@ -153,38 +153,33 @@ export default function FeesPage() {
         };
         const updated = { ...current, ...updates };
 
+        const monthNum = parseInt(selectedMonth.split('-')[1], 10);
+        const title = `${monthNum}月分月謝 (${student?.name})`;
+        const oldTitle = `月謝 (${student?.name})`;
+        const description = `${selectedMonth}分 月謝支払い`;
+        const txDate = `${selectedMonth}-01`;
+
         try {
             const { data, error } = await supabase.from('tuition_payments').upsert(updated).select().single();
             if (error) throw error;
 
             setPayments(prev => ({ ...prev, [studentId]: data }));
-            
-            const student = students.find(s => s.id === studentId);
-            const monthNum = parseInt(selectedMonth.split('-')[1], 10);
-            const title = `${monthNum}月分月謝 (${student?.name})`;
-            const description = `${selectedMonth}分 月謝支払い`;
-            const txDate = `${selectedMonth}-01`;
-
-            // 旧フォーマットのタイトルも含めて削除対象にする
-            const oldTitle = `月謝 (${student?.name})`;
 
             if (updates.status === 'paid') {
                 // 重複を防ぐため、事前に同じ月の同じ生徒の該当取引があれば削除しておく
-                await supabase.from('transactions').delete().match({
-                    category: 'school',
-                    title: title,
-                    description: description
-                });
+                await supabase.from('transactions').delete()
+                    .eq('category', 'school')
+                    .eq('title', title)
+                    .eq('description', description);
                 // 旧フォーマットのレコードも削除
-                await supabase.from('transactions').delete().match({
-                    category: 'school',
-                    title: oldTitle,
-                    description: description
-                });
+                await supabase.from('transactions').delete()
+                    .eq('category', 'school')
+                    .eq('title', oldTitle)
+                    .eq('description', description);
 
                 // 新たに取引（収入）として追加
                 const transaction = {
-                    date: txDate, // 月謝の対象月に揃える
+                    date: txDate,
                     title: title,
                     amount: updated.amount,
                     category: 'school',
@@ -199,17 +194,15 @@ export default function FeesPage() {
                 }
             } else if (updates.status === 'billed') {
                 // 「戻す」場合は会計ページの履歴から削除する
-                await supabase.from('transactions').delete().match({
-                    category: 'school',
-                    title: title,
-                    description: description
-                });
+                await supabase.from('transactions').delete()
+                    .eq('category', 'school')
+                    .eq('title', title)
+                    .eq('description', description);
                 // 旧フォーマットのレコードも削除
-                await supabase.from('transactions').delete().match({
-                    category: 'school',
-                    title: oldTitle,
-                    description: description
-                });
+                await supabase.from('transactions').delete()
+                    .eq('category', 'school')
+                    .eq('title', oldTitle)
+                    .eq('description', description);
                 showToast("ステータスを戻し、会計から取り消しました");
             } else {
                 showToast("保存しました");
