@@ -160,15 +160,25 @@ export default function FeesPage() {
             setPayments(prev => ({ ...prev, [studentId]: data }));
             
             const student = students.find(s => s.id === studentId);
-            const title = `月謝 (${student?.name})`;
+            const monthNum = parseInt(selectedMonth.split('-')[1], 10);
+            const title = `${monthNum}月分月謝 (${student?.name})`;
             const description = `${selectedMonth}分 月謝支払い`;
             const txDate = `${selectedMonth}-01`;
+
+            // 旧フォーマットのタイトルも含めて削除対象にする
+            const oldTitle = `月謝 (${student?.name})`;
 
             if (updates.status === 'paid') {
                 // 重複を防ぐため、事前に同じ月の同じ生徒の該当取引があれば削除しておく
                 await supabase.from('transactions').delete().match({
                     category: 'school',
                     title: title,
+                    description: description
+                });
+                // 旧フォーマットのレコードも削除
+                await supabase.from('transactions').delete().match({
+                    category: 'school',
+                    title: oldTitle,
                     description: description
                 });
 
@@ -192,6 +202,12 @@ export default function FeesPage() {
                 await supabase.from('transactions').delete().match({
                     category: 'school',
                     title: title,
+                    description: description
+                });
+                // 旧フォーマットのレコードも削除
+                await supabase.from('transactions').delete().match({
+                    category: 'school',
+                    title: oldTitle,
                     description: description
                 });
                 showToast("ステータスを戻し、会計から取り消しました");
