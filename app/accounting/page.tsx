@@ -1,6 +1,7 @@
 "use client"; 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { supabase } from "@/lib/supabase";
+import { exportToExcel, exportToPDF } from "@/lib/exportUtils";
 
 type Transaction = {
   id: string;
@@ -69,7 +70,8 @@ export default function AccountingPage() {
   const [selectedMonth, setSelectedMonth] = useState(new Date().toISOString().substring(0, 7)); // YYYY-MM
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [toastMessage, setToastMessage] = useState("");
-  const [lifetimeTransactions, setLifetimeTransactions] = useState<{id: string, amount: number, category: string}[]>([]);
+  const [lifetimeTransactions, setLifetimeTransactions] = useState<Transaction[]>([]);
+  const [selectedHistoryCategory, setSelectedHistoryCategory] = useState<string | null>(null);
 
   // 新規登録・編集用フォームの状態
   const [formData, setFormData] = useState({
@@ -82,6 +84,19 @@ export default function AccountingPage() {
   });
 
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isExportOpen, setIsExportOpen] = useState(false);
+  const exportRef = useRef<HTMLDivElement>(null);
+
+  // Close export dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (exportRef.current && !exportRef.current.contains(e.target as Node)) {
+        setIsExportOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -92,7 +107,8 @@ export default function AccountingPage() {
     try {
       const { data, error } = await supabase
         .from("transactions")
-        .select("id, amount, category");
+        .select("*")
+        .order("date", { ascending: false });
       if (error) throw error;
       setLifetimeTransactions(data || []);
     } catch (error) {
@@ -234,46 +250,7 @@ export default function AccountingPage() {
     setIsModalOpen(false);
   };
 
-  const syncMonthlyFees = async () => {
-    if (!confirm(`${selectedMonth}分の生徒月謝を一括計上しますか？`)) return;
-    
-    try {
-      const { data: students, error: stError } = await supabase
-        .from("students")
-        .select("name, monthly_fee")
-        .eq("is_active", true);
 
-      if (stError) throw stError;
-      if (!students || students.length === 0) {
-        showToast("対象生徒がいません");
-        return;
-      }
-
-      const newTransactions = students
-        .filter(s => s.monthly_fee > 0)
-        .map(s => ({
-          date: `${selectedMonth}-01`,
-          title: `月謝: ${s.name}`,
-          amount: s.monthly_fee,
-          category: 'school',
-        }));
-
-      if (newTransactions.length === 0) {
-        showToast("計上対象がいません");
-        return;
-      }
-
-      const { error: insError } = await supabase.from("transactions").insert(newTransactions);
-      if (insError) throw insError;
-
-      showToast(`${newTransactions.length}件の月謝を計上しました`);
-      fetchTransactions();
-      fetchAllTimeTotals();
-    } catch (error: any) {
-      console.error("月謝同期エラー:", error);
-      showToast("同期に失敗しました");
-    }
-  };
 
   // 集計ロジック
   // 1. 月間
@@ -322,27 +299,79 @@ export default function AccountingPage() {
           </h1>
         </div>
 
-        <div className="flex flex-wrap gap-4 w-full lg:w-auto">
+        <div className="flex flex-wrap gap-3 w-full lg:w-auto">
+          {/* Export Dropdown */}
+          <div className="relative" ref={exportRef}>
+            <button
+              onClick={() => setIsExportOpen(!isExportOpen)}
+              className="flex-1 lg:flex-none px-5 py-2.5 bg-emerald-900/30 hover:bg-emerald-900/50 border border-emerald-500/30 rounded-xl text-xs font-black tracking-[0.1em] transition-all active:scale-95 flex items-center justify-center gap-2 uppercase text-emerald-300"
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+              エクスポート
+            </button>
+            {isExportOpen && (
+              <div className="absolute right-0 mt-2 w-56 bg-slate-900 border border-slate-700 rounded-2xl shadow-[0_20px_60px_rgba(0,0,0,0.6)] overflow-hidden z-[100] animate-in fade-in slide-in-from-top-2 duration-200">
+                <button
+                  onClick={() => {
+                    exportToExcel({
+                      transactions,
+                      selectedMonth,
+                      monthlyIncome,
+                      monthlyExpense,
+                      monthlyNet,
+                      categoryTotals: monthlyCategoryTotals,
+                    });
+                    setIsExportOpen(false);
+                    showToast("Excelファイルをダウンロードしました");
+                  }}
+                  className="w-full px-5 py-4 text-left text-sm font-bold text-white hover:bg-emerald-500/20 transition-colors flex items-center gap-3 group"
+                >
+                  <span className="w-9 h-9 rounded-xl bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center text-emerald-400 group-hover:scale-110 transition-transform">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="16" y2="17"/></svg>
+                  </span>
+                  <div>
+                    <div className="text-xs font-black tracking-wider uppercase">Excel (.xlsx)</div>
+                    <div className="text-[10px] text-slate-500 font-bold mt-0.5">スプレッドシート形式</div>
+                  </div>
+                </button>
+                <div className="h-[1px] bg-slate-800 mx-4"></div>
+                <button
+                  onClick={() => {
+                    exportToPDF({
+                      transactions,
+                      selectedMonth,
+                      monthlyIncome,
+                      monthlyExpense,
+                      monthlyNet,
+                      categoryTotals: monthlyCategoryTotals,
+                    });
+                    setIsExportOpen(false);
+                    showToast("PDFプレビューを開きました");
+                  }}
+                  className="w-full px-5 py-4 text-left text-sm font-bold text-white hover:bg-rose-500/20 transition-colors flex items-center gap-3 group"
+                >
+                  <span className="w-9 h-9 rounded-xl bg-rose-500/20 border border-rose-500/30 flex items-center justify-center text-rose-400 group-hover:scale-110 transition-transform">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                  </span>
+                  <div>
+                    <div className="text-xs font-black tracking-wider uppercase">PDF</div>
+                    <div className="text-[10px] text-slate-500 font-bold mt-0.5">印刷 / PDF保存</div>
+                  </div>
+                </button>
+              </div>
+            )}
+          </div>
           <a
             href="/accounting/annual"
-            className="flex-1 lg:flex-none px-8 py-4 bg-indigo-900/30 hover:bg-indigo-900/50 border border-indigo-500/30 rounded-2xl text-[10px] font-black tracking-[0.2em] transition-all active:scale-95 flex items-center justify-center gap-3 uppercase text-indigo-300"
+            className="flex-1 lg:flex-none px-5 py-2.5 bg-indigo-900/30 hover:bg-indigo-900/50 border border-indigo-500/30 rounded-xl text-xs font-black tracking-[0.1em] transition-all active:scale-95 flex items-center justify-center gap-2 uppercase text-indigo-300"
           >
             年間収支レポート表示
           </a>
           <button
-            onClick={syncMonthlyFees}
-            className="flex-1 lg:flex-none px-8 py-4 bg-slate-900 hover:bg-slate-800 border border-slate-800 rounded-2xl text-[10px] font-black tracking-[0.2em] transition-all active:scale-95 flex items-center justify-center gap-3 group"
-          >
-            <span className="text-white group-hover:text-blue-400 transition-colors uppercase font-black">月謝データの同期</span>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="text-slate-400 group-hover:rotate-180 transition-transform duration-500">
-              <path d="M21 12a9 9 0 11-9-9c2.52 0 4.93 1 6.74 2.74L21 8" /><path d="M21 3v5h-5" />
-            </svg>
-          </button>
-          <button
             onClick={openModalForNew}
-            className="flex-1 lg:flex-none px-8 py-4 bg-blue-600 hover:bg-blue-500 text-white rounded-2xl text-[10px] font-black tracking-[0.2em] transition-all active:scale-95 shadow-[0_10px_30px_rgba(37,99,235,0.3)] flex items-center justify-center gap-3 uppercase"
+            className="flex-1 lg:flex-none px-5 py-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-black tracking-[0.1em] transition-all active:scale-95 shadow-[0_5px_15px_rgba(37,99,235,0.3)] flex items-center justify-center gap-2 uppercase"
           >
-            新規取引の登録 <span className="text-lg leading-none">+</span>
+            新規取引の登録 <span className="text-base leading-none">+</span>
           </button>
         </div>
       </header>
@@ -380,7 +409,11 @@ export default function AccountingPage() {
           {/* Lifetime Category Breakdown (3 Columns) */}
           <div className="grid grid-cols-1 md:grid-cols-3 divide-y md:divide-y-0 md:divide-x divide-indigo-500/10 bg-slate-950/30">
             {lifetimeCategoryTotals.slice(0, 3).map((cat) => (
-              <div key={`lifetime-${cat.id}`} className="relative p-6 md:p-8 group hover:bg-slate-800/40 transition-colors overflow-hidden">
+              <div 
+                key={`lifetime-${cat.id}`} 
+                onClick={() => setSelectedHistoryCategory(cat.id)}
+                className="relative p-6 md:p-8 group hover:bg-slate-800/40 transition-colors overflow-hidden cursor-pointer"
+              >
                 <div className={`absolute inset-0 bg-gradient-to-br ${cat.gradient} opacity-0 group-hover:opacity-100 transition-opacity duration-700`}></div>
                 <div className="relative z-10">
                   <p className="text-[10px] font-bold text-slate-500 mb-2 tracking-wider">全期間カテゴリー別</p>
@@ -594,6 +627,114 @@ export default function AccountingPage() {
           </table>
         </div>
       </div>
+
+      {/* Category History Modal */}
+      {selectedHistoryCategory && (() => {
+        const cat = CATEGORIES.find(c => c.id === selectedHistoryCategory);
+        if (!cat) return null;
+        
+        const historyData = lifetimeTransactions.filter(t => 
+          cat.id === 'other' ? !CATEGORIES.slice(0, 3).some(c => c.id === t.category) : t.category === cat.id
+        );
+
+        return (
+          <div className="fixed inset-0 z-[400] flex items-end md:items-center justify-center md:p-4">
+            <div className="absolute inset-0 bg-slate-950/80 backdrop-blur-xl animate-in fade-in duration-500" onClick={() => setSelectedHistoryCategory(null)}></div>
+            
+            <div className="relative bg-slate-900 border border-slate-800 w-full max-w-4xl rounded-t-[2rem] md:rounded-[2.5rem] shadow-[0_50px_150px_rgba(0,0,0,0.8)] overflow-hidden max-h-[90vh] flex flex-col scale-in animate-in zoom-in-95 duration-300">
+              <div className="px-8 flex-shrink-0 py-6 border-b border-slate-800 flex justify-between items-center bg-slate-950">
+                <div>
+                  <h2 className="text-xl md:text-2xl font-black italic tracking-tighter text-white uppercase flex items-center gap-3">
+                    <span className={`w-4 h-4 rounded-full ${cat.bg} border ${cat.border}`}></span>
+                    {cat.label} 履歴
+                  </h2>
+                  <p className="text-[10px] font-black text-slate-500 tracking-widest uppercase mt-1">
+                    全期間の {cat.shortLabel} に関連する {historyData.length} 件のデータ
+                  </p>
+                </div>
+                <button 
+                  onClick={() => setSelectedHistoryCategory(null)}
+                  className="w-12 h-12 rounded-2xl bg-slate-800 flex items-center justify-center text-slate-500 hover:text-white hover:bg-slate-700 transition-all active:scale-90 shadow-lg"
+                >
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
+                </button>
+              </div>
+              
+              <div className="overflow-y-auto p-1 flex-1">
+                <table className="w-full border-collapse">
+                  <thead>
+                    <tr className="bg-slate-950/50 sticky top-0 z-10 backdrop-blur-md text-[10px] uppercase font-black tracking-[0.2em] text-white">
+                      <th className="px-4 md:px-8 py-4 text-left border-b border-slate-800 font-black">発生日</th>
+                      <th className="px-4 md:px-8 py-4 text-left border-b border-slate-800">内容 / 内訳（説明）</th>
+                      <th className="px-4 md:px-8 py-4 text-left border-b border-slate-800 hidden md:table-cell">カテゴリー</th>
+                      <th className="px-4 md:px-8 py-4 text-right border-b border-slate-800">収支金額</th>
+                      <th className="px-4 md:px-8 py-4 text-center border-b border-slate-800 w-[60px] md:w-[100px]">操作</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-800/30">
+                    {historyData.length === 0 ? (
+                      <tr>
+                        <td colSpan={5} className="py-20 text-center">
+                          <p className="text-xs font-black text-slate-500 tracking-[0.3em] uppercase italic">このカテゴリーの取引データはありません</p>
+                        </td>
+                      </tr>
+                    ) : historyData.map(t => {
+                      const rowCat = CATEGORIES.find(c => c.id === t.category) || CATEGORIES[3];
+                      return (
+                      <tr key={`history-${t.id}`} className="group hover:bg-slate-800/40 transition-all duration-300">
+                        <td className="px-4 md:px-8 py-4 text-xs font-mono text-white whitespace-nowrap">{t.date}</td>
+                        <td className="px-4 md:px-8 py-4">
+                          <p className="text-sm font-black text-white">{t.title}</p>
+                          {t.description && <p className="text-[10px] font-bold mt-1 uppercase tracking-tighter leading-relaxed" style={{ color: '#94a3b8' }}>{t.description}</p>}
+                          {/* モバイルではカテゴリーをここに表示 */}
+                          <div className="md:hidden mt-1">
+                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-black tracking-widest uppercase border" style={{ color: rowCat.hexColor, borderColor: rowCat.hexBorder, backgroundColor: rowCat.hexBg }}>
+                              {rowCat.shortLabel}
+                            </span>
+                          </div>
+                        </td>
+                        <td className="px-4 md:px-8 py-4 hidden md:table-cell">
+                          <div className="relative inline-block">
+                            <select
+                              value={t.category}
+                              onChange={(e) => handleUpdateCategory(t.id, e.target.value)}
+                              className="appearance-none outline-none cursor-pointer inline-flex items-center px-4 py-2 pr-10 rounded-full text-xs font-black tracking-widest border-2 uppercase transition-all hover:brightness-125 focus:ring-2 focus:ring-slate-400 shadow-xl"
+                              style={{ color: rowCat.hexColor, borderColor: rowCat.hexBorder, backgroundColor: rowCat.hexBg }}
+                            >
+                              {CATEGORIES.map(c => (
+                                <option key={c.id} value={c.id} style={{ color: c.hexColor, backgroundColor: c.hexBg }} className="font-bold py-2">{c.shortLabel}</option>
+                              ))}
+                            </select>
+                            <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none opacity-80" style={{ color: rowCat.hexColor }}>
+                              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M6 9l6 6 6-6"/></svg>
+                            </div>
+                          </div>
+                        </td>
+                        <td 
+                          className="px-4 md:px-8 py-4 text-right font-black font-mono text-base tracking-tighter whitespace-nowrap"
+                          style={{ color: t.amount >= 0 ? '#34d399' : '#fb7185' }}
+                        >
+                          {t.amount >= 0 ? '+' : '-'}¥{Math.abs(t.amount).toLocaleString()}
+                        </td>
+                        <td className="px-4 md:px-8 py-4 text-center">
+                          <button
+                            onClick={() => { setSelectedHistoryCategory(null); openModalForEdit(t); }}
+                            className="p-2 text-slate-500 hover:text-blue-400 transition-colors"
+                            title="編集"
+                          >
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+                          </button>
+                        </td>
+                      </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Transaction Entry Modal */}
       {isModalOpen && (

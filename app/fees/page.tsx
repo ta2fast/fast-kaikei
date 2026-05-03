@@ -158,21 +158,45 @@ export default function FeesPage() {
             if (error) throw error;
 
             setPayments(prev => ({ ...prev, [studentId]: data }));
-            showToast("保存しました");
+            
+            const student = students.find(s => s.id === studentId);
+            const title = `月謝 (${student?.name})`;
+            const description = `${selectedMonth}分 月謝支払い`;
+            const txDate = `${selectedMonth}-01`;
 
-            // Sync to transactions if status became 'paid'
             if (updates.status === 'paid') {
-                const student = students.find(s => s.id === studentId);
+                // 重複を防ぐため、事前に同じ月の同じ生徒の該当取引があれば削除しておく
+                await supabase.from('transactions').delete().match({
+                    category: 'school',
+                    title: title,
+                    description: description
+                });
+
+                // 新たに取引（収入）として追加
                 const transaction = {
-                    date: new Date().toISOString().split('T')[0],
-                    title: `月謝 (${student?.name})`,
+                    date: txDate, // 月謝の対象月に揃える
+                    title: title,
                     amount: updated.amount,
                     category: 'school',
-                    description: `${selectedMonth}分 月謝支払い`
+                    description: description
                 };
                 const { error: transError } = await supabase.from('transactions').insert(transaction);
-                if (transError) console.error("Transaction sync error:", transError);
-                else showToast("会計ページに反映されました");
+                if (transError) {
+                    console.error("Transaction sync error:", transError);
+                    showToast("月謝は保存されましたが、会計への同期に失敗しました");
+                } else {
+                    showToast("受取完了 ＆ 会計ページに反映しました");
+                }
+            } else if (updates.status === 'billed') {
+                // 「戻す」場合は会計ページの履歴から削除する
+                await supabase.from('transactions').delete().match({
+                    category: 'school',
+                    title: title,
+                    description: description
+                });
+                showToast("ステータスを戻し、会計から取り消しました");
+            } else {
+                showToast("保存しました");
             }
         } catch (error: any) {
             console.error("Save error:", error);
@@ -235,6 +259,12 @@ export default function FeesPage() {
         return acc;
     }, { totalBilledForecast: 0, totalPaid: 0, paidCount: 0, billedUnpaidCount: 0, unbilledCount: 0 });
 
+    // 月謝確定済み判定
+    const isMonthConfirmed = Object.values(payments).some(
+        (p) => p.status === 'billed' || p.status === 'paid'
+    );
+    const isAllPaid = students.length > 0 && students.every(s => payments[s.id]?.status === 'paid');
+
     return (
         <div className="p-4 md:p-8 bg-slate-950 min-h-screen text-white relative">
             {/* トースト通知 */}
@@ -252,32 +282,23 @@ export default function FeesPage() {
                     <h1 className="text-2xl md:text-4xl font-black italic tracking-tighter text-white uppercase leading-none">月謝管理 <span className="text-slate-600 block md:inline md:ml-2">/ Fees & Billing</span></h1>
                 </div>
 
-                <div className="flex items-center gap-4 w-full md:w-auto">
-                    <button
-                        onClick={handleBatchConfirm}
-                        disabled={isSaving}
-                        className="bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white px-6 md:px-8 py-3 rounded-2xl text-xs font-black tracking-[0.2em] shadow-[0_15px_30px_rgba(16,185,129,0.3)] transition-all active:scale-95 flex items-center gap-2 w-full md:w-auto justify-center"
-                    >
-                        <span>全員の月謝を確定</span>
-                        <span className="bg-white/20 w-5 h-5 rounded-md flex items-center justify-center">→</span>
-                    </button>
-                </div>
+
             </div>
 
             {/* サマリーダッシュボード */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6 mb-6 md:mb-10">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6 mb-6">
                 <div className="bg-slate-900/50 p-5 md:p-6 rounded-2xl md:rounded-[2rem] border border-slate-800/50 backdrop-blur-sm">
-                    <p className="text-slate-500 text-[10px] font-black tracking-widest uppercase mb-2">総請求見込額</p>
+                    <p className="text-slate-500 text-[10px] font-black tracking-widest uppercase mb-2">総請求額</p>
                     <div className="flex items-end gap-2">
                         <span className="text-xl md:text-3xl font-black italic tracking-tighter">¥{summary.totalBilledForecast.toLocaleString()}</span>
                         <span className="text-slate-600 text-xs mb-1 font-bold">/ Month</span>
                     </div>
                 </div>
                 <div className="bg-slate-900/50 p-5 md:p-6 rounded-2xl md:rounded-[2rem] border border-slate-800/50 backdrop-blur-sm border-l-emerald-500/50 border-l-4">
-                    <p className="text-emerald-500 text-[10px] font-black tracking-widest uppercase mb-2">支払い完了状況</p>
+                    <p className="text-emerald-500 text-[10px] font-black tracking-widest uppercase mb-2">受取済み</p>
                     <div className="flex items-end gap-2 mb-2">
                         <span className="text-xl md:text-3xl font-black italic tracking-tighter text-emerald-400">¥{summary.totalPaid.toLocaleString()}</span>
-                        <span className="text-slate-600 text-xs mb-1 font-bold">Paid</span>
+                        <span className="text-slate-600 text-xs mb-1 font-bold">Received</span>
                     </div>
                     <div className="w-full bg-slate-800 h-2 rounded-full overflow-hidden">
                         <div 
@@ -288,20 +309,56 @@ export default function FeesPage() {
                     <p className="text-right text-[10px] mt-1 text-slate-500 font-bold tracking-widest">{summary.paidCount} / {students.length} 名</p>
                 </div>
                 <div className="bg-slate-900/50 p-5 md:p-6 rounded-2xl md:rounded-[2rem] border border-slate-800/50 backdrop-blur-sm">
-                    <p className="text-amber-500 text-[10px] font-black tracking-widest uppercase mb-2">未請求・未払い</p>
+                    <p className="text-amber-500 text-[10px] font-black tracking-widest uppercase mb-2">受取待ち</p>
                     <div className="flex items-center gap-4">
                         <div>
-                            <span className="text-xl md:text-2xl font-black italic tracking-tighter text-amber-400">{summary.unbilledCount}</span>
-                            <span className="text-slate-600 text-[9px] block font-bold leading-none uppercase">Unbilled</span>
+                            <span className="text-xl md:text-2xl font-black italic tracking-tighter text-amber-400">{summary.billedUnpaidCount}</span>
+                            <span className="text-slate-600 text-[9px] block font-bold leading-none uppercase">未受取</span>
                         </div>
                         <div className="w-[1px] h-8 bg-slate-800" />
                         <div>
-                            <span className="text-xl md:text-2xl font-black italic tracking-tighter text-orange-400">{summary.billedUnpaidCount}</span>
-                            <span className="text-slate-600 text-[9px] block font-bold leading-none uppercase">Unpaid</span>
+                            <span className="text-xl md:text-2xl font-black italic tracking-tighter text-slate-500">{summary.unbilledCount}</span>
+                            <span className="text-slate-600 text-[9px] block font-bold leading-none uppercase">出欠未確定</span>
                         </div>
                     </div>
                 </div>
             </div>
+
+            {/* 月謝確定済みバナー */}
+            {isMonthConfirmed && (
+                <div className={`mb-6 p-4 rounded-2xl border flex flex-col sm:flex-row items-start sm:items-center gap-3 ${
+                    isAllPaid
+                        ? 'bg-emerald-900/20 border-emerald-700/40'
+                        : 'bg-amber-900/20 border-amber-700/40'
+                }`}>
+                    <div className="flex items-center gap-3 flex-1">
+                        <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${
+                            isAllPaid ? 'bg-emerald-500/20 text-emerald-400' : 'bg-amber-500/20 text-amber-400'
+                        }`}>
+                            {isAllPaid ? (
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                            ) : (
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                            )}
+                        </div>
+                        <div>
+                            <p className={`text-xs font-black tracking-widest uppercase ${
+                                isAllPaid ? 'text-emerald-400' : 'text-amber-400'
+                            }`}>
+                                {isAllPaid
+                                    ? `✅ ${selectedMonth} — 全員の受け取りが完了しています`
+                                    : `📋 ${selectedMonth} — 月謝が確定済みです。各生徒の受け取りを確認してください`
+                                }
+                            </p>
+                            {!isAllPaid && (
+                                <p className="text-[10px] text-slate-500 mt-0.5">
+                                    {summary.billedUnpaidCount}名が未受取 / {summary.paidCount}名が受取済み
+                                </p>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* フィルター & 月次選択 */}
             <div className="flex flex-col md:flex-row md:flex-wrap md:items-center gap-3 md:gap-4 bg-slate-900/50 p-4 md:p-6 rounded-2xl md:rounded-[2rem] border border-slate-800/50 backdrop-blur-sm mb-6 md:mb-8">
@@ -374,11 +431,11 @@ export default function FeesPage() {
                                         </td>
                                         <td className="p-6 text-center">
                                             {p.status === 'paid' ? (
-                                                <span className="inline-block bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest shadow-[0_0_15px_rgba(16,185,129,0.2)]">Paid</span>
+                                                <span className="inline-block bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest shadow-[0_0_15px_rgba(16,185,129,0.2)]">領収済</span>
                                             ) : p.status === 'billed' ? (
-                                                <span className="inline-block bg-amber-500/20 text-amber-400 border border-amber-500/30 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest">Billed</span>
+                                                <span className="inline-block bg-amber-500/20 text-amber-400 border border-amber-500/30 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest">請求確定</span>
                                             ) : (
-                                                <span className="inline-block bg-slate-800 text-slate-500 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest">Unbilled</span>
+                                                <span className="inline-block bg-slate-800 text-slate-500 px-3 py-1 rounded-full text-[10px] font-black tracking-widest">出欠未確定</span>
                                             )}
                                         </td>
                                         <td className="p-6">
@@ -391,27 +448,23 @@ export default function FeesPage() {
                                                 className="bg-transparent border-b border-transparent hover:border-slate-700 focus:border-emerald-500 outline-none w-full text-slate-400 text-xs transition-colors"
                                             />
                                         </td>
-                                        <td className="p-6 text-right space-x-2">
-                                            {p.status === 'unbilled' && (
-                                                <button 
-                                                    onClick={() => handleSave(student.id, { status: 'billed' })}
-                                                    className="p-2 bg-emerald-600/20 text-emerald-400 border border-emerald-500/20 rounded-lg hover:bg-emerald-600 hover:text-white transition-all active:scale-90"
-                                                    title="請求を確定"
-                                                >確定</button>
-                                            )}
+                                        <td className="p-4 text-right">
                                             {p.status === 'billed' && (
                                                 <button 
                                                     onClick={() => handleSave(student.id, { status: 'paid' })}
-                                                    className="p-2 bg-blue-600 text-white rounded-lg hover:bg-blue-500 shadow-lg shadow-blue-600/20 transition-all active:scale-90"
-                                                    title="支払いを完了"
-                                                >領収</button>
+                                                    disabled={isSaving}
+                                                    className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-black tracking-widest shadow-lg shadow-emerald-600/20 transition-all active:scale-95 flex items-center gap-2 ml-auto"
+                                                >
+                                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                                                    受け取り確認
+                                                </button>
                                             )}
                                             {p.status === 'paid' && (
                                                 <button 
                                                     onClick={() => handleSave(student.id, { status: 'billed' })}
-                                                    className="p-2 text-slate-500 hover:text-white transition-colors"
+                                                    className="px-3 py-1.5 text-slate-500 hover:text-white border border-slate-700 hover:border-slate-500 rounded-lg text-xs transition-all"
                                                     title="ステータスを戻す"
-                                                >↩</button>
+                                                >↩ 戻す</button>
                                             )}
                                         </td>
                                     </tr>
@@ -436,18 +489,13 @@ export default function FeesPage() {
                         <div key={student.id} className="bg-slate-900/80 rounded-2xl border border-slate-800 p-4 backdrop-blur-sm shadow-xl">
                             {/* ヘッダー: 名前 + ステータス */}
                             <div className="flex items-center justify-between mb-3">
-                                <div className="flex items-center gap-3">
-                                    <div className="w-9 h-9 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 flex items-center justify-center text-xs font-black">
-                                        {student.name?.charAt(0)}
-                                    </div>
-                                    <span className="font-bold text-white text-sm">{student.name}</span>
-                                </div>
+                                <span className="font-bold text-white text-sm">{student.name}</span>
                                 {p.status === 'paid' ? (
-                                    <span className="bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-widest">Paid</span>
+                                    <span className="bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-2.5 py-1 rounded-full text-[9px] font-black tracking-widest">領収済</span>
                                 ) : p.status === 'billed' ? (
-                                    <span className="bg-amber-500/20 text-amber-400 border border-amber-500/30 px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-widest">Billed</span>
+                                    <span className="bg-amber-500/20 text-amber-400 border border-amber-500/30 px-2.5 py-1 rounded-full text-[9px] font-black tracking-widest">請求確定</span>
                                 ) : (
-                                    <span className="bg-slate-800 text-slate-500 px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-widest">Unbilled</span>
+                                    <span className="bg-slate-800 text-slate-500 px-2.5 py-1 rounded-full text-[9px] font-black tracking-widest">出欠未確定</span>
                                 )}
                             </div>
 
@@ -481,17 +529,15 @@ export default function FeesPage() {
 
                             {/* 操作ボタン */}
                             <div className="flex gap-2">
-                                {p.status === 'unbilled' && (
-                                    <button 
-                                        onClick={() => handleSave(student.id, { status: 'billed' })}
-                                        className="flex-1 py-3 bg-emerald-600/20 text-emerald-400 border border-emerald-500/20 rounded-xl text-xs font-black tracking-widest hover:bg-emerald-600 hover:text-white transition-all active:scale-95"
-                                    >確定</button>
-                                )}
                                 {p.status === 'billed' && (
                                     <button 
                                         onClick={() => handleSave(student.id, { status: 'paid' })}
-                                        className="flex-1 py-3 bg-blue-600 text-white rounded-xl text-xs font-black tracking-widest shadow-lg shadow-blue-600/20 transition-all active:scale-95"
-                                    >領収</button>
+                                        disabled={isSaving}
+                                        className="flex-1 py-3.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-black tracking-widest shadow-lg shadow-emerald-600/20 transition-all active:scale-95 flex items-center justify-center gap-2"
+                                    >
+                                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                                        受け取り確認
+                                    </button>
                                 )}
                                 {p.status === 'paid' && (
                                     <button 

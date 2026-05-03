@@ -20,6 +20,7 @@ export default function AttendancePage() {
     const [payments, setPayments] = useState<Record<string, any>>({});
     const [sessionFee, setSessionFee] = useState<number>(1000);
     const [rentalBikeFee, setRentalBikeFee] = useState<number>(1000);
+    const [settingsLocations, setSettingsLocations] = useState<any[]>([]);
     
     // モーダル用の一時的な出欠状態 (ID -> status)
     const [pendingAttendance, setPendingAttendance] = useState<Record<string, string>>({});
@@ -76,6 +77,7 @@ export default function AttendancePage() {
             if (!sysError && sysData) {
                 setSessionFee(sysData.session_fee || 1000);
                 setRentalBikeFee(sysData.rental_bike_fee || 1000);
+                setSettingsLocations(sysData.locations || []);
             }
 
             if (stData) setStudents(stData);
@@ -188,6 +190,9 @@ export default function AttendancePage() {
 
     const getLocationColor = (name: string) => {
         if (!name) return "bg-slate-700";
+        const foundLoc = settingsLocations.find((l: any) => l.name === name);
+        if (foundLoc && foundLoc.color) return foundLoc.color;
+
         const colors = [
             "bg-blue-500", "bg-emerald-500", "bg-violet-500", 
             "bg-amber-500", "bg-rose-500", "bg-cyan-500", "bg-indigo-500"
@@ -234,10 +239,14 @@ export default function AttendancePage() {
     };
 
     const handleConfirmMonth = async () => {
-        if (!confirm(`${selectedMonth}の出欠を確定し、月謝を確定しますか？`)) return;
+        // window.confirmがブロックされる環境対策として確認ダイアログは一旦スキップするか、カスタムモーダルを利用するのが理想ですが
+        // 緊急措置としてconfirmを維持しつつ、もしエラーならスキップしないようにします
+        const isConfirmed = typeof window !== 'undefined' ? window.confirm(`${selectedMonth}の出欠を確定し、月謝を計算しますか？\n\n確定後は出欠の編集ができなくなります。`) : true;
+        if (!isConfirmed) return;
+        
         setIsSaving(true);
         try {
-            const toUpsert = students.map(s => {
+            const toInsert = students.map(s => {
                 const count = getAttendanceCount(s.id, true);
                 let amount = Math.round(count * sessionFee);
                 if (s.has_rental_bike) {
@@ -253,23 +262,53 @@ export default function AttendancePage() {
                 };
             });
 
-            if (toUpsert.length > 0) {
-                const { error } = await supabase.from('tuition_payments').upsert(toUpsert);
-                if (error) throw error;
-                showToast("月謝を確定しました");
+            if (toInsert.length > 0) {
+                // 1. まず既存の同じ月の unbilled データなどを削除 (ユニーク制約エラー回避)
+                await supabase
+                    .from('tuition_payments')
+                    .delete()
+                    .eq('month', selectedMonth);
+
+                // 2. 新規データとして挿入
+                const { data: inserted, error } = await supabase
+                    .from('tuition_payments')
+                    .insert(toInsert)
+                    .select();
+
+                if (error) {
+                    console.error("Insert error:", error);
+                    throw new Error(error.message);
+                }
+
+                // 即時ステート更新でUIをロック
+                const newPayments: Record<string, any> = { ...payments };
+                if (inserted) {
+                    inserted.forEach((r: any) => { newPayments[r.student_id] = r; });
+                } else {
+                    toInsert.forEach(r => { newPayments[r.student_id] = r; });
+                }
+                setPayments(newPayments);
+
+                showToast("✅ 出欠・月謝を確定しました");
                 await fetchData();
             } else {
                 showToast("対象の生徒がいません");
             }
-        } catch (err) {
-            console.error(err);
-            showToast("月謝の確定に失敗しました");
+        } catch (err: any) {
+            console.error("確定エラー:", err);
+            showToast(`確定失敗: ${err.message || '不明なエラー'}`);
         } finally {
             setIsSaving(false);
         }
     };
 
+
     const sessionDates = [...new Set(attendance.map(a => a.date))].sort().slice(0, 5);
+
+    // 確定済み判定：tuition_paymentsにbilled/paidが1件でもあれば確定済み
+    const isMonthConfirmed = Object.values(payments).some(
+        (p: any) => p.status === 'billed' || p.status === 'paid'
+    );
 
     return (
         <div className="p-4 md:p-8 bg-slate-950 min-h-screen text-white relative">
@@ -288,58 +327,79 @@ export default function AttendancePage() {
                     <h1 className="text-2xl md:text-4xl font-black italic tracking-tighter text-white uppercase leading-none">出欠管理 <span className="text-slate-600 block md:inline md:ml-2">/ Attendance</span></h1>
                 </div>
 
-                <div className="flex items-center gap-4 w-full md:w-auto">
-                    <button
-                        onClick={() => setIsInputModalOpen(true)}
-                        className="bg-blue-600 hover:bg-blue-500 text-white px-6 md:px-8 py-3 rounded-2xl text-xs font-black tracking-[0.2em] shadow-[0_15px_30px_rgba(37,99,235,0.4)] transition-all active:scale-95 flex items-center gap-2 w-full md:w-auto justify-center"
-                    >
-                        <span>出欠入力</span>
-                        <span className="bg-white/20 w-5 h-5 rounded-md flex items-center justify-center">+</span>
-                    </button>
+                <div className="flex items-center gap-4">
+                    {isMonthConfirmed ? (
+                        <div className="flex items-center gap-2 bg-slate-800/80 border border-slate-700 text-slate-400 px-5 py-2.5 rounded-2xl text-xs font-black tracking-[0.15em]">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                            <span>編集ロック中</span>
+                        </div>
+                    ) : (
+                        <button
+                            onClick={() => setIsInputModalOpen(true)}
+                            className="bg-blue-600 hover:bg-blue-500 text-white px-5 py-2.5 rounded-2xl text-xs font-black tracking-[0.2em] shadow-[0_15px_30px_rgba(37,99,235,0.4)] transition-all active:scale-95 flex items-center gap-2 justify-center"
+                        >
+                            <span>出欠入力</span>
+                            <span className="bg-white/20 w-5 h-5 rounded-md flex items-center justify-center">+</span>
+                        </button>
+                    )}
                 </div>
             </div>
 
             {/* 月間表示セクション */}
             <div className="space-y-8">
-                <div className="flex flex-col md:flex-row md:flex-wrap md:items-center gap-3 md:gap-4 bg-slate-900/50 p-3 md:p-4 rounded-xl border border-slate-800/50 backdrop-blur-sm">
-                    <div className="flex items-center gap-2 md:gap-4">
-                        <span className="text-[10px] md:text-xs text-slate-200 font-bold uppercase tracking-widest font-black italic shrink-0">表示月:</span>
-                        <div className="flex items-center gap-1 md:gap-2 flex-1">
-                            <button 
-                                onClick={() => changeMonth(-1)}
-                                className="w-10 h-10 flex items-center justify-center bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-lg text-white transition-all shadow-lg active:scale-90 text-sm shrink-0"
-                            >
-                                ←
-                            </button>
-                            <input
-                                type="month"
-                                value={selectedMonth}
-                                onChange={(e) => setSelectedMonth(e.target.value)}
-                                className="bg-slate-800 border border-slate-700 px-3 md:px-4 py-2 rounded-lg text-blue-400 font-mono font-bold focus:ring-2 focus:ring-blue-500 outline-none flex-1 min-w-0 md:w-[180px]"
-                            />
-                            <button 
-                                onClick={() => changeMonth(1)}
-                                className="w-10 h-10 flex items-center justify-center bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-lg text-white transition-all shadow-lg active:scale-90 text-sm shrink-0"
-                            >
-                                →
-                            </button>
-                        </div>
-                        <span className="text-[10px] text-slate-500 hidden md:inline italic ml-2">* 月最大5回分まで表示しています</span>
+                <div className="bg-slate-900/50 p-3 md:p-4 rounded-xl border border-slate-800/50 backdrop-blur-sm space-y-3">
+                    {/* 1行目：表示月切り替え */}
+                    <div className="flex items-center gap-2">
+                        <span className="text-[10px] text-slate-400 font-black italic shrink-0 uppercase tracking-widest">表示月</span>
+                        <button 
+                            onClick={() => changeMonth(-1)}
+                            className="w-9 h-9 flex items-center justify-center bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-lg text-white transition-all shadow-lg active:scale-90 text-sm shrink-0"
+                        >
+                            ←
+                        </button>
+                        <input
+                            type="month"
+                            value={selectedMonth}
+                            onChange={(e) => setSelectedMonth(e.target.value)}
+                            className="bg-slate-800 border border-slate-700 px-3 py-2 rounded-lg text-blue-400 font-mono font-bold focus:ring-2 focus:ring-blue-500 outline-none flex-1 min-w-0 text-sm"
+                        />
+                        <button 
+                            onClick={() => changeMonth(1)}
+                            className="w-9 h-9 flex items-center justify-center bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-lg text-white transition-all shadow-lg active:scale-90 text-sm shrink-0"
+                        >
+                            →
+                        </button>
                     </div>
-
-                    <div className="md:ml-auto flex items-center gap-2">
-                        {viewMode === 'monthly' && (
+                    {/* 2行目：月謝確定ボタン or 確定済みバッジ */}
+                    {viewMode === 'monthly' && (
+                        isMonthConfirmed ? (
+                            <div className="w-full bg-emerald-900/30 border border-emerald-700/40 text-emerald-400 px-4 py-2.5 rounded-xl text-xs font-black tracking-[0.15em] flex items-center gap-2 justify-center">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                                <span>この月の出欠・月謝は確定済みです</span>
+                            </div>
+                        ) : (
                             <button
                                 onClick={handleConfirmMonth}
                                 disabled={isSaving || loading}
-                                className="bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white px-4 md:px-6 py-2.5 rounded-xl text-[10px] md:text-xs font-black tracking-[0.15em] md:tracking-[0.2em] shadow-[0_10px_20px_rgba(16,185,129,0.3)] transition-all active:scale-95 flex items-center gap-2 w-full md:w-auto justify-center"
+                                className="w-full bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white px-4 py-2.5 rounded-xl text-xs font-black tracking-[0.15em] shadow-[0_10px_20px_rgba(16,185,129,0.3)] transition-all active:scale-95 flex items-center gap-2 justify-center"
                             >
                                 <span>出欠・月謝を確定する</span>
-                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
                             </button>
-                        )}
-                    </div>
+                        )
+                    )}
+                    <span className="text-[10px] text-slate-500 italic">* 月最大5回分まで表示しています</span>
                 </div>
+
+                {/* 確定済みバナー */}
+                {isMonthConfirmed && (
+                    <div className="flex items-center gap-3 bg-amber-900/20 border border-amber-700/30 rounded-xl px-4 py-3">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-amber-400 shrink-0"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                        <p className="text-[11px] font-black text-amber-400 tracking-widest uppercase">
+                            この月は確定済みのため編集できません。月謝管理ページで内容を確認できます。
+                        </p>
+                    </div>
+                )}
 
                 <div className="overflow-x-auto bg-slate-900 rounded-[2rem] border border-slate-800 shadow-2xl scrollbar-hide min-h-[400px] flex flex-col items-center justify-center">
                     {loading ? (
@@ -348,8 +408,8 @@ export default function AttendancePage() {
                         <table className="w-full border-collapse table-fixed min-w-[800px]">
                             <thead>
                                 <tr className="bg-slate-800 text-[10px] tracking-widest uppercase font-black divide-x divide-slate-700">
-                                    <th className="sticky left-0 z-40 bg-slate-800 px-6 py-4 text-left border-b border-slate-700 w-[200px] text-white">
-                                        名前 / NAME
+                                    <th className="sticky left-0 z-40 bg-slate-800 px-2 py-3 text-left border-b border-slate-700 w-[120px] md:w-[160px] text-white text-xs whitespace-nowrap">
+                                        名前
                                     </th>
                                     {sessionDates.map(dateStr => {
                                         const dayRecords = attendance.filter(a => a.date === dateStr);
@@ -357,48 +417,57 @@ export default function AttendancePage() {
                                         const isToday = dateStr === new Date().toISOString().split('T')[0];
                                         
                                         return (
-                                            <th key={dateStr} className={`p-0 border-b border-slate-700 w-[120px] text-center ${isToday ? 'bg-blue-600/20 text-blue-400 font-bold' : 'text-slate-400'}`}>
-                                                <div className="w-full py-4 flex flex-col items-center justify-center gap-2">
-                                                    <span className="text-[10px] font-mono leading-none opacity-80">{dateStr}</span>
-                                                    <div className="px-2 w-full">
-                                                        <div className={`px-1 py-1 rounded text-[9px] font-black leading-tight text-white shadow-md w-full truncate ${getLocationColor(location)}`}>
+                                            <th key={dateStr} className={`p-0 border-b border-slate-700 w-[60px] md:w-[80px] text-center ${isToday ? 'bg-blue-600/20 text-blue-400 font-bold' : 'text-slate-400'}`}>
+                                                <button 
+                                                    onClick={() => { if (!isMonthConfirmed) { setSelectedDate(dateStr); setIsInputModalOpen(true); } }}
+                                                    disabled={isMonthConfirmed}
+                                                    className={`w-full py-2 md:py-3 flex flex-col items-center justify-center gap-1 transition-colors group ${
+                                                        isMonthConfirmed ? 'cursor-not-allowed opacity-70' : 'hover:bg-slate-700/50 cursor-pointer'
+                                                    }`}
+                                                    aria-label={isMonthConfirmed ? '確定済みのため編集不可' : '出欠を修正する'}
+                                                >
+                                                    <span className="text-[10px] md:text-xs font-mono leading-none opacity-80 flex items-center gap-1 group-hover:text-blue-300 transition-colors">
+                                                        {dateStr.substring(5)}
+                                                        {!isMonthConfirmed && (
+                                                            <svg className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity hidden md:block" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" /><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" /></svg>
+                                                        )}
+                                                    </span>
+                                                    <div className="px-1 w-full">
+                                                        <div className={`px-1 py-0.5 rounded text-[8px] md:text-[9px] font-black leading-tight text-white shadow-md w-full truncate ${getLocationColor(location)}`}>
                                                             {location}
                                                         </div>
                                                     </div>
-                                                </div>
+                                                </button>
                                             </th>
                                         );
                                     })}
                                     {/* 5回に満たない場合の空カラム */}
                                     {Array.from({ length: 5 - sessionDates.length }).map((_, i) => (
-                                        <th key={`empty-${i}`} className="p-0 border-b border-slate-700 w-[120px] text-slate-600 text-[10px] italic">
-                                            <div className="w-full py-4 flex items-center justify-center">-</div>
+                                        <th key={`empty-${i}`} className="p-0 border-b border-slate-700 w-[60px] md:w-[80px] text-slate-600 text-[10px] italic">
+                                            <div className="w-full py-2 flex items-center justify-center">-</div>
                                         </th>
                                     ))}
-                                    <th className="bg-slate-800 px-4 py-4 text-center border-b border-slate-700 w-[80px] text-white">
-                                        日数 / DAYS
-                                    </th>
-                                    <th className="bg-slate-800 px-6 py-4 text-right border-b border-slate-700 w-[140px] text-emerald-400">
-                                        月謝 / FEE
+                                    <th className="bg-slate-800 px-2 py-3 text-center border-b border-slate-700 w-[50px] md:w-[60px] text-white whitespace-nowrap">
+                                        日数
                                     </th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-800/50">
                                 <tr className="bg-slate-800/30 text-[10px]">
-                                    <td colSpan={8} className="px-6 py-4 font-black text-blue-400 uppercase tracking-[0.3em] border-b border-slate-800">
-                                        STUDENTS / 生徒
+                                    <td colSpan={7} className="px-3 py-2 font-black text-blue-400 uppercase tracking-widest border-b border-slate-800">
+                                        生徒
                                     </td>
                                 </tr>
                                 {students.map((student) => (
-                                    <tr key={student.id} className="group hover:bg-slate-800/30 transition-all text-sm font-bold divide-x divide-slate-800/30">
-                                        <td className="sticky left-0 z-20 bg-slate-900 group-hover:bg-slate-800/50 px-6 py-4 border-b border-slate-800 text-white whitespace-nowrap overflow-hidden text-ellipsis transition-colors">
+                                    <tr key={student.id} className="group hover:bg-slate-800/30 transition-all font-bold divide-x divide-slate-800/30">
+                                        <td className="sticky left-0 z-20 bg-slate-900 group-hover:bg-slate-800/50 px-2 py-2 border-b border-slate-800 text-white whitespace-nowrap overflow-hidden text-ellipsis transition-colors text-xs">
                                             {student.name}
                                         </td>
                                         {sessionDates.map(dateStr => {
                                             const record = attendance.find(a => a.student_id === student.id && a.date === dateStr);
                                             return (
                                                 <td key={dateStr} className="p-0 border-b text-center">
-                                                    <div className="w-full h-20 flex items-center justify-center">
+                                                    <div className="w-full h-12 flex items-center justify-center">
                                                         <StatusIcon status={record?.status} size="sm" />
                                                     </div>
                                                 </td>
@@ -406,42 +475,32 @@ export default function AttendancePage() {
                                         })}
                                         {Array.from({ length: 5 - sessionDates.length }).map((_, i) => (
                                             <td key={`empty-td-${i}`} className="p-0 border-b text-center">
-                                                <div className="w-full h-20"></div>
+                                                <div className="w-full h-12"></div>
                                             </td>
                                         ))}
-                                        <td className="bg-slate-900/50 p-0 border-b text-center text-blue-400 font-black font-mono text-lg italic">
-                                            <div className="w-full h-20 flex items-center justify-center">
+                                        <td className="bg-slate-900/50 p-0 border-b text-center text-blue-400 font-black font-mono text-base italic">
+                                            <div className="w-full h-12 flex items-center justify-center">
                                                 {getAttendanceCount(student.id, true).toFixed(1)}
                                             </div>
-                                        </td>
-                                        <td className="bg-slate-900/50 px-6 py-4 border-b text-right text-emerald-400 font-black font-mono italic">
-                                            {payments[student.id] && ['billed', 'paid'].includes(payments[student.id].status) ? (
-                                                <div className="flex flex-col items-end justify-center h-full">
-                                                    <span className="text-xl">¥{payments[student.id].amount.toLocaleString()}</span>
-                                                    <span className="text-[8px] bg-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded-sm uppercase tracking-widest mt-1">確定済</span>
-                                                </div>
-                                            ) : (
-                                                <div className="text-slate-600 text-sm h-full flex items-center justify-end">-</div>
-                                            )}
                                         </td>
                                     </tr>
                                 ))}
 
                                 <tr className="bg-slate-800/30 text-[10px] text-left">
-                                    <td colSpan={8} className="px-6 py-4 font-black text-emerald-400 uppercase tracking-[0.3em] border-b border-slate-800">
-                                        INSTRUCTORS / 講師
+                                    <td colSpan={7} className="px-3 py-2 font-black text-emerald-400 uppercase tracking-widest border-b border-slate-800">
+                                        講師
                                     </td>
                                 </tr>
                                 {instructors.map((inst) => (
-                                    <tr key={inst.id} className="group hover:bg-slate-800/30 transition-all text-sm font-bold divide-x divide-slate-800/30">
-                                        <td className="sticky left-0 z-20 bg-slate-900 group-hover:bg-slate-800/50 px-6 py-4 border-b border-slate-800 text-white whitespace-nowrap overflow-hidden text-ellipsis transition-colors">
+                                    <tr key={inst.id} className="group hover:bg-slate-800/30 transition-all font-bold divide-x divide-slate-800/30">
+                                        <td className="sticky left-0 z-20 bg-slate-900 group-hover:bg-slate-800/50 px-2 py-2 border-b border-slate-800 text-white whitespace-nowrap overflow-hidden text-ellipsis transition-colors text-xs">
                                             {inst.name}
                                         </td>
                                         {sessionDates.map(dateStr => {
                                             const record = attendance.find(a => a.instructor_id === inst.id && a.date === dateStr);
                                             return (
                                                 <td key={dateStr} className="p-0 border-b text-center">
-                                                    <div className="w-full h-20 flex items-center justify-center">
+                                                    <div className="w-full h-12 flex items-center justify-center">
                                                         <StatusIcon status={record?.status} size="sm" />
                                                     </div>
                                                 </td>
@@ -449,16 +508,13 @@ export default function AttendancePage() {
                                         })}
                                         {Array.from({ length: 5 - sessionDates.length }).map((_, i) => (
                                             <td key={`empty-inst-td-${i}`} className="p-0 border-b text-center">
-                                                <div className="w-full h-20"></div>
+                                                <div className="w-full h-12"></div>
                                             </td>
                                         ))}
-                                        <td className="bg-slate-900/50 p-0 border-b text-center text-emerald-400 font-black font-mono text-lg italic">
-                                            <div className="w-full h-20 flex items-center justify-center">
+                                        <td className="bg-slate-900/50 p-0 border-b text-center text-emerald-400 font-black font-mono text-base italic">
+                                            <div className="w-full h-12 flex items-center justify-center">
                                                 {getAttendanceCount(inst.id, false).toFixed(1)}
                                             </div>
-                                        </td>
-                                        <td className="bg-slate-900/50 p-0 border-b text-center text-slate-600">
-                                            -
                                         </td>
                                     </tr>
                                 ))}
@@ -513,11 +569,17 @@ export default function AttendancePage() {
                                     <label className="text-[10px] font-black text-white uppercase tracking-widest italic ml-1">② 開催場所</label>
                                     <input
                                         type="text"
+                                        list="location-options"
                                         placeholder="例: 会場名、パーク名など"
                                         value={currentLocation}
                                         onChange={(e) => setCurrentLocation(e.target.value)}
                                         className="w-full bg-slate-800 border border-slate-700 px-6 py-4 rounded-2xl text-white text-sm font-bold focus:ring-2 focus:ring-blue-500 outline-none transition-all shadow-xl placeholder:text-slate-700"
                                     />
+                                    <datalist id="location-options">
+                                        {settingsLocations.map((loc: any) => (
+                                            <option key={loc.name} value={loc.name} />
+                                        ))}
+                                    </datalist>
                                 </div>
                             </div>
 
@@ -530,10 +592,7 @@ export default function AttendancePage() {
                                     <div className="space-y-2 md:space-y-3">
                                         {students.map(student => (
                                             <div key={student.id} className="group flex items-center justify-between p-3 md:p-4 bg-slate-900 rounded-2xl border border-slate-800 hover:border-slate-600 transition-all shadow-md">
-                                                <div className="flex items-center gap-3 md:gap-4 min-w-0 flex-1">
-                                                    <div className="w-9 h-9 md:w-10 md:h-10 rounded-full bg-blue-500/10 text-blue-500 border border-blue-500/20 flex items-center justify-center text-xs font-black shrink-0">
-                                                        {student.name?.charAt(0)}
-                                                    </div>
+                                                <div className="flex items-center gap-3 md:gap-4 min-w-0 flex-1 pl-2">
                                                     <span className="font-black text-slate-100 text-sm truncate">{student.name}</span>
                                                 </div>
                                                 <button
@@ -564,10 +623,7 @@ export default function AttendancePage() {
                                     <div className="space-y-2 md:space-y-3">
                                         {instructors.map(inst => (
                                             <div key={inst.id} className="group flex items-center justify-between p-3 md:p-4 bg-slate-900 rounded-2xl border border-slate-800 hover:border-slate-600 transition-all shadow-md">
-                                                <div className="flex items-center gap-3 md:gap-4 min-w-0 flex-1">
-                                                    <div className="w-9 h-9 md:w-10 md:h-10 rounded-full bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 flex items-center justify-center text-xs font-black shrink-0">
-                                                        {inst.name?.charAt(0)}
-                                                    </div>
+                                                <div className="flex items-center gap-3 md:gap-4 min-w-0 flex-1 pl-2">
                                                     <span className="font-black text-slate-100 text-sm truncate">{inst.name}</span>
                                                 </div>
                                                 <button

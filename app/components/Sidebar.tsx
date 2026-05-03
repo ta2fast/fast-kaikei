@@ -4,10 +4,11 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 const navItems = [
-  { href: "/", label: "👤 生徒一覧", short: "Students" },
+  { href: "/students", label: "👤 生徒一覧", short: "Students" },
   { href: "/attendance", label: "📅 出欠管理", short: "Attendance" },
   { href: "/fees", label: "💳 月謝管理", short: "Fees" },
   { href: "/accounting", label: "💰 会計管理", short: "Accounting" },
+  { href: "/events", label: "📋 イベント情報", short: "Events" },
   { href: "/teachers", label: "👨‍🏫 講師・スタッフ", short: "Teachers" },
   { href: "/settings", label: "⚙️ システム設定", short: "Settings" },
 ];
@@ -67,7 +68,7 @@ export default function Sidebar() {
       `}>
         <div className="mb-12 flex items-center justify-between">
           <div>
-            <h2 className="text-xl font-black italic tracking-tighter text-blue-500 uppercase">F.A.S.T. Dashboard</h2>
+            <h2 className="text-xl font-black italic tracking-tighter text-blue-500 uppercase">F.A.S.T. System</h2>
             <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mt-1">Management v2.0</p>
           </div>
           {/* モバイル閉じるボタン */}

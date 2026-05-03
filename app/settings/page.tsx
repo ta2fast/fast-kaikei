@@ -5,6 +5,7 @@ import { supabase } from "@/lib/supabase";
 export default function SettingsPage() {
     const [sessionFee, setSessionFee] = useState<number>(1000);
     const [rentalBikeFee, setRentalBikeFee] = useState<number>(1000);
+    const [locations, setLocations] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
     const [toastMessage, setToastMessage] = useState("");
@@ -22,6 +23,7 @@ export default function SettingsPage() {
             if (data) {
                 setSessionFee(data.session_fee || 1000);
                 setRentalBikeFee(data.rental_bike_fee || 1000);
+                setLocations(data.locations || []);
             }
         } catch (error: any) {
             console.error("設定取得エラー:", error);
@@ -42,6 +44,7 @@ export default function SettingsPage() {
                 id: 1,
                 session_fee: sessionFee,
                 rental_bike_fee: rentalBikeFee,
+                locations: locations,
                 updated_at: new Date().toISOString()
             });
 
@@ -131,6 +134,64 @@ export default function SettingsPage() {
                                     />
                                 </div>
                             </div>
+                        </div>
+                    </div>
+
+                    <div className="mb-8 border-b border-slate-800/80 pb-8">
+                        <h2 className="text-lg font-black text-slate-200 mb-2 flex items-center gap-2">
+                            <span className="bg-emerald-500/20 text-emerald-400 px-2 py-1 rounded text-xs">LOCATION</span>
+                            開催場所リストの管理
+                        </h2>
+                        <p className="text-xs text-slate-500 font-bold mb-6">
+                            出欠管理画面で表示される「開催場所」のプルダウン選択肢と、表示カラーを自由に追加・管理できます。
+                        </p>
+                        
+                        <div className="space-y-4">
+                            {locations.map((loc, index) => (
+                                <div key={index} className="flex flex-col md:flex-row md:items-center gap-3 p-4 bg-slate-950 border border-slate-800 rounded-xl relative">
+                                    <div className="flex-1">
+                                        <input 
+                                            type="text"
+                                            value={loc.name}
+                                            onChange={(e) => {
+                                                const newLocs = [...locations];
+                                                newLocs[index].name = e.target.value;
+                                                setLocations(newLocs);
+                                            }}
+                                            placeholder="例: 武生中央公園"
+                                            className="w-full bg-transparent text-white font-bold text-sm focus:outline-none placeholder:text-slate-700"
+                                        />
+                                    </div>
+                                    <div className="flex items-center gap-2 flex-wrap">
+                                        {['bg-blue-500', 'bg-emerald-500', 'bg-violet-500', 'bg-amber-500', 'bg-rose-500', 'bg-cyan-500', 'bg-indigo-500', 'bg-slate-500'].map(color => (
+                                            <button
+                                                key={color}
+                                                onClick={() => {
+                                                    const newLocs = [...locations];
+                                                    newLocs[index].color = color;
+                                                    setLocations(newLocs);
+                                                }}
+                                                className={`w-6 h-6 rounded-full ${color} ${loc.color === color ? 'ring-2 ring-white ring-offset-2 ring-offset-slate-950 scale-110' : 'opacity-50 hover:opacity-100'} transition-all`}
+                                            />
+                                        ))}
+                                    </div>
+                                    <button 
+                                        onClick={() => {
+                                            const newLocs = locations.filter((_, i) => i !== index);
+                                            setLocations(newLocs);
+                                        }}
+                                        className="w-8 h-8 rounded-full bg-red-500/10 hover:bg-red-500/20 text-red-500 flex items-center justify-center transition-colors shrink-0"
+                                    >
+                                        ✕
+                                    </button>
+                                </div>
+                            ))}
+                            <button 
+                                onClick={() => setLocations([...locations, { name: "", color: "bg-slate-500" }])}
+                                className="w-full py-3 border border-dashed border-slate-700 hover:border-blue-500 text-slate-500 hover:text-blue-400 rounded-xl font-bold text-sm transition-colors flex items-center justify-center gap-2"
+                            >
+                                <span>+</span> 開催場所を追加する
+                            </button>
                         </div>
                     </div>
 
