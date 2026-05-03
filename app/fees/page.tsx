@@ -140,8 +140,9 @@ export default function FeesPage() {
     };
 
     const syncMonthlyTuitionTransaction = async (monthStr: string, updatedPayments: Record<string, MonthlyPayment>) => {
-        const monthNum = parseInt(monthStr.split('-')[1], 10);
-        const consolidatedTitle = `${monthNum}月分月謝`;
+        const [yearStr, monthStr2] = monthStr.split('-');
+        const monthNum = parseInt(monthStr2, 10);
+        const consolidatedTitle = `${yearStr}年${monthNum}月分月謝`;
         const txDate = `${monthStr}-01`;
 
         // この月のpaid状態の生徒の合計を算出
@@ -173,6 +174,12 @@ export default function FeesPage() {
         await supabase.from('transactions').delete()
             .eq('category', 'school')
             .eq('title', consolidatedTitle)
+            .eq('date', txDate);
+        // 旧フォーマット（年なし）の統合レコードも削除
+        const oldConsolidatedTitle = `${monthNum}月分月謝`;
+        await supabase.from('transactions').delete()
+            .eq('category', 'school')
+            .eq('title', oldConsolidatedTitle)
             .eq('date', txDate);
 
         if (totalAmount > 0 && paidStudents.length > 0) {
