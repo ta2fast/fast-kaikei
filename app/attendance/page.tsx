@@ -302,6 +302,51 @@ export default function AttendancePage() {
         }
     };
 
+    const handleUnlockMonth = async () => {
+        const hasPaid = Object.values(payments).some((p: any) => p.status === 'paid');
+        if (hasPaid) {
+            const force = window.confirm("既に支払済みの生徒がいます。ロックを解除すると月謝データと会計の同期がリセットされます。\n\n本当にロックを解除しますか？");
+            if (!force) return;
+        } else {
+            const confirm = window.confirm(`${selectedMonth}の確定ロックを解除しますか？\n\n月謝管理の請求ステータスはリセットされます。`);
+            if (!confirm) return;
+        }
+
+        setIsSaving(true);
+        try {
+            // 1. 月謝データの削除
+            const { error } = await supabase
+                .from('tuition_payments')
+                .delete()
+                .eq('month', selectedMonth);
+            
+            if (error) throw error;
+
+            // 2. 会計レコードの削除（ある場合）
+            const [yearStr, monthStr2] = selectedMonth.split('-');
+            const yearNum = parseInt(yearStr, 10);
+            const monthNum = parseInt(monthStr2, 10);
+            const consolidatedTitle = `${yearStr}年${monthNum}月分月謝`;
+            const oldConsolidatedTitle = `${monthNum}月分月謝`;
+
+            await supabase.from('transactions').delete()
+                .eq('category', 'school')
+                .eq('title', consolidatedTitle);
+                
+            await supabase.from('transactions').delete()
+                .eq('category', 'school')
+                .eq('title', oldConsolidatedTitle);
+            
+            showToast("🔓 ロックを解除しました");
+            await fetchData();
+        } catch (err: any) {
+            console.error("Unlock error:", err);
+            showToast("ロック解除に失敗しました");
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
 
     const sessionDates = [...new Set(attendance.map(a => a.date))].sort().slice(0, 5);
 
@@ -329,10 +374,15 @@ export default function AttendancePage() {
 
                 <div className="flex items-center gap-4">
                     {isMonthConfirmed ? (
-                        <div className="flex items-center gap-2 bg-slate-800/80 border border-slate-700 text-slate-400 px-5 py-2.5 rounded-2xl text-xs font-black tracking-[0.15em]">
+                        <button
+                            onClick={handleUnlockMonth}
+                            disabled={isSaving}
+                            className="flex items-center gap-2 bg-slate-800/80 hover:bg-slate-700 border border-slate-700 text-slate-400 hover:text-white px-5 py-2.5 rounded-2xl text-xs font-black tracking-[0.15em] transition-all shadow-sm active:scale-95 cursor-pointer"
+                            title="クリックしてロック解除"
+                        >
                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-                            <span>編集ロック中</span>
-                        </div>
+                            <span>編集ロック中 (解除)</span>
+                        </button>
                     ) : (
                         <button
                             onClick={() => setIsInputModalOpen(true)}
@@ -373,9 +423,20 @@ export default function AttendancePage() {
                     {/* 2行目：月謝確定ボタン or 確定済みバッジ */}
                     {viewMode === 'monthly' && (
                         isMonthConfirmed ? (
-                            <div className="w-full bg-emerald-900/30 border border-emerald-700/40 text-emerald-400 px-4 py-2.5 rounded-xl text-xs font-black tracking-[0.15em] flex items-center gap-2 justify-center">
-                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-                                <span>この月の出欠・月謝は確定済みです</span>
+                            <div className="flex gap-2 w-full">
+                                <div className="flex-1 bg-emerald-900/30 border border-emerald-700/40 text-emerald-400 px-4 py-2.5 rounded-xl text-xs font-black tracking-[0.15em] flex items-center gap-2 justify-center">
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                                    <span>この月の出欠・月謝は確定済みです</span>
+                                </div>
+                                <button
+                                    onClick={handleUnlockMonth}
+                                    disabled={isSaving}
+                                    className="bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-400 hover:text-white px-4 py-2.5 rounded-xl text-xs font-black transition-colors flex items-center justify-center shrink-0 active:scale-95"
+                                    title="ロック解除"
+                                >
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                                    <span className="ml-2 hidden md:inline">ロック解除</span>
+                                </button>
                             </div>
                         ) : (
                             <button
