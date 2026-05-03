@@ -141,9 +141,19 @@ export default function FeesPage() {
 
     const syncMonthlyTuitionTransaction = async (monthStr: string, updatedPayments: Record<string, MonthlyPayment>) => {
         const [yearStr, monthStr2] = monthStr.split('-');
+        const yearNum = parseInt(yearStr, 10);
         const monthNum = parseInt(monthStr2, 10);
         const consolidatedTitle = `${yearStr}年${monthNum}月分月謝`;
-        const txDate = `${monthStr}-01`;
+
+        // 会計上の日付は次月の1日とする
+        let nextYearNum = yearNum;
+        let nextMonthNum = monthNum + 1;
+        if (nextMonthNum > 12) {
+            nextMonthNum = 1;
+            nextYearNum++;
+        }
+        const nextMonthStr = nextMonthNum.toString().padStart(2, '0');
+        const txDate = `${nextYearNum}-${nextMonthStr}-01`;
 
         // この月のpaid状態の生徒の合計を算出
         const paidStudents = students.filter(s => {
@@ -170,17 +180,15 @@ export default function FeesPage() {
                 .eq('description', oldDesc);
         }
 
-        // 統合レコードを削除してから再作成
+        // 統合レコードを削除してから再作成 (日付に依存せずタイトルで削除)
         await supabase.from('transactions').delete()
             .eq('category', 'school')
-            .eq('title', consolidatedTitle)
-            .eq('date', txDate);
+            .eq('title', consolidatedTitle);
         // 旧フォーマット（年なし）の統合レコードも削除
         const oldConsolidatedTitle = `${monthNum}月分月謝`;
         await supabase.from('transactions').delete()
             .eq('category', 'school')
-            .eq('title', oldConsolidatedTitle)
-            .eq('date', txDate);
+            .eq('title', oldConsolidatedTitle);
 
         if (totalAmount > 0 && paidStudents.length > 0) {
             const paidNames = paidStudents.map(s => s.name).join('、');
