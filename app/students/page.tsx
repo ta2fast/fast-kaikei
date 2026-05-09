@@ -329,13 +329,82 @@ export default function Home() {
                 </div>
                 <div className="col-span-2">
                   <label className="text-[10px] text-slate-400 font-black uppercase tracking-widest pl-1 mb-1 block">生年月日</label>
-                  <input 
-                    type="date"
-                    name="birth_date" 
-                    value={editingStudent.birth_date || ""} 
-                    onChange={handleEditChange} 
-                    className="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-3 text-sm text-white focus:border-blue-500 focus:outline-none transition-colors" 
-                  />
+                  <div className="flex gap-2">
+                    <div className="relative flex-1">
+                      <select
+                        value={(editingStudent.birth_date || "").split('-')[0] || ""}
+                        onChange={(e) => {
+                          const parts = (editingStudent.birth_date || "").split("-");
+                          const y = e.target.value;
+                          const m = parts[1] || "01";
+                          const d = parts[2] || "01";
+                          setEditingStudent({
+                            ...editingStudent,
+                            birth_date: y ? `${y}-${m}-${d}` : ""
+                          });
+                        }}
+                        className="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-3 text-sm text-white focus:border-blue-500 focus:outline-none transition-colors appearance-none"
+                      >
+                        <option value="">年</option>
+                        {Array.from({ length: 100 }, (_, i) => new Date().getFullYear() - i).map(y => (
+                          <option key={y} value={y}>{y}年</option>
+                        ))}
+                      </select>
+                      <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-slate-400">
+                        <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/></svg>
+                      </div>
+                    </div>
+                    <div className="relative flex-1">
+                      <select
+                        value={(editingStudent.birth_date || "").split('-')[1] || ""}
+                        onChange={(e) => {
+                          const parts = (editingStudent.birth_date || "").split("-");
+                          const y = parts[0] || new Date().getFullYear().toString();
+                          const m = e.target.value;
+                          const d = parts[2] || "01";
+                          setEditingStudent({
+                            ...editingStudent,
+                            birth_date: m ? `${y}-${m}-${d}` : ""
+                          });
+                        }}
+                        className="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-3 text-sm text-white focus:border-blue-500 focus:outline-none transition-colors appearance-none"
+                      >
+                        <option value="">月</option>
+                        {Array.from({ length: 12 }, (_, i) => i + 1).map(m => {
+                          const val = m.toString().padStart(2, '0');
+                          return <option key={val} value={val}>{m}月</option>;
+                        })}
+                      </select>
+                      <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-slate-400">
+                        <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/></svg>
+                      </div>
+                    </div>
+                    <div className="relative flex-1">
+                      <select
+                        value={(editingStudent.birth_date || "").split('-')[2] || ""}
+                        onChange={(e) => {
+                          const parts = (editingStudent.birth_date || "").split("-");
+                          const y = parts[0] || new Date().getFullYear().toString();
+                          const m = parts[1] || "01";
+                          const d = e.target.value;
+                          setEditingStudent({
+                            ...editingStudent,
+                            birth_date: d ? `${y}-${m}-${d}` : ""
+                          });
+                        }}
+                        className="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-3 text-sm text-white focus:border-blue-500 focus:outline-none transition-colors appearance-none"
+                      >
+                        <option value="">日</option>
+                        {Array.from({ length: 31 }, (_, i) => i + 1).map(d => {
+                          const val = d.toString().padStart(2, '0');
+                          return <option key={val} value={val}>{d}日</option>;
+                        })}
+                      </select>
+                      <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-slate-400">
+                        <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/></svg>
+                      </div>
+                    </div>
+                  </div>
                 </div>
                 <div className="col-span-2">
                   <label className="text-[10px] text-slate-400 font-black uppercase tracking-widest pl-1 mb-1 block">住所</label>
