@@ -98,6 +98,8 @@ export default function Home() {
             address: editingStudent.address,
             emergency_contact: editingStudent.emergency_contact,
             emergency_relationship: editingStudent.emergency_relationship,
+            emergency_contact_2: editingStudent.emergency_contact_2,
+            emergency_relationship_2: editingStudent.emergency_relationship_2,
             is_active: editingStudent.is_active
           })
           .eq('id', editingStudent.id);
@@ -114,6 +116,8 @@ export default function Home() {
             address: editingStudent.address,
             emergency_contact: editingStudent.emergency_contact,
             emergency_relationship: editingStudent.emergency_relationship,
+            emergency_contact_2: editingStudent.emergency_contact_2,
+            emergency_relationship_2: editingStudent.emergency_relationship_2,
             is_active: true,
             has_rental_bike: false
           }]);
@@ -201,6 +205,12 @@ export default function Home() {
                 <td className="p-6">
                   <div className="text-sm text-orange-400 font-mono font-bold tracking-tight">{s.emergency_contact || "-"}</div>
                   <div className="text-[10px] text-slate-500 font-bold mt-1">({s.emergency_relationship || "不明"})</div>
+                  {s.emergency_contact_2 && (
+                    <div className="mt-2 pt-2 border-t border-slate-700/50">
+                      <div className="text-sm text-orange-400/80 font-mono font-bold tracking-tight">{s.emergency_contact_2}</div>
+                      <div className="text-[10px] text-slate-500 font-bold mt-1">({s.emergency_relationship_2 || "不明"})</div>
+                    </div>
+                  )}
                 </td>
                 <td className="p-6 text-center">
                   <button 
@@ -271,6 +281,9 @@ export default function Home() {
               <div className="col-span-2">
                 <p className="text-[9px] text-slate-500 font-black uppercase tracking-widest mb-0.5">緊急連絡先</p>
                 <p className="text-orange-400 font-mono font-bold text-xs">{s.emergency_contact || "-"} <span className="text-slate-500">({s.emergency_relationship || "不明"})</span></p>
+                {s.emergency_contact_2 && (
+                  <p className="text-orange-400/80 font-mono font-bold text-xs mt-1">{s.emergency_contact_2} <span className="text-slate-500">({s.emergency_relationship_2 || "不明"})</span></p>
+                )}
               </div>
             </div>
 
@@ -416,7 +429,7 @@ export default function Home() {
                   />
                 </div>
                 <div className="col-span-2 sm:col-span-1">
-                  <label className="text-[10px] text-slate-400 font-black uppercase tracking-widest pl-1 mb-1 block">緊急連絡先</label>
+                  <label className="text-[10px] text-slate-400 font-black uppercase tracking-widest pl-1 mb-1 block">緊急連絡先 (第1)</label>
                   <input 
                     name="emergency_contact" 
                     value={editingStudent.emergency_contact || ""} 
@@ -425,10 +438,28 @@ export default function Home() {
                   />
                 </div>
                 <div className="col-span-2 sm:col-span-1">
-                  <label className="text-[10px] text-slate-400 font-black uppercase tracking-widest pl-1 mb-1 block">続柄</label>
+                  <label className="text-[10px] text-slate-400 font-black uppercase tracking-widest pl-1 mb-1 block">続柄 (第1)</label>
                   <input 
                     name="emergency_relationship" 
                     value={editingStudent.emergency_relationship || ""} 
+                    onChange={handleEditChange} 
+                    className="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-3 text-sm text-white focus:border-blue-500 focus:outline-none transition-colors" 
+                  />
+                </div>
+                <div className="col-span-2 sm:col-span-1">
+                  <label className="text-[10px] text-slate-400 font-black uppercase tracking-widest pl-1 mb-1 block">緊急連絡先 (第2)</label>
+                  <input 
+                    name="emergency_contact_2" 
+                    value={editingStudent.emergency_contact_2 || ""} 
+                    onChange={handleEditChange} 
+                    className="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-3 text-sm text-white font-mono focus:border-blue-500 focus:outline-none transition-colors" 
+                  />
+                </div>
+                <div className="col-span-2 sm:col-span-1">
+                  <label className="text-[10px] text-slate-400 font-black uppercase tracking-widest pl-1 mb-1 block">続柄 (第2)</label>
+                  <input 
+                    name="emergency_relationship_2" 
+                    value={editingStudent.emergency_relationship_2 || ""} 
                     onChange={handleEditChange} 
                     className="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-3 text-sm text-white focus:border-blue-500 focus:outline-none transition-colors" 
                   />
