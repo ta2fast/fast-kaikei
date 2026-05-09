@@ -87,21 +87,39 @@ export default function Home() {
     if (!editingStudent) return;
     setIsSaving(true);
     try {
-      // 編集した内容を保存 (is_active等もここでまとめて更新)
-      const { error } = await supabase
-        .from('students')
-        .update({
-          name: editingStudent.name,
-          furigana: editingStudent.furigana,
-          birth_date: editingStudent.birth_date,
-          address: editingStudent.address,
-          emergency_contact: editingStudent.emergency_contact,
-          emergency_relationship: editingStudent.emergency_relationship,
-          is_active: editingStudent.is_active
-        })
-        .eq('id', editingStudent.id);
-        
-      if (error) throw error;
+      if (editingStudent.id) {
+        // 編集した内容を保存 (is_active等もここでまとめて更新)
+        const { error } = await supabase
+          .from('students')
+          .update({
+            name: editingStudent.name,
+            furigana: editingStudent.furigana,
+            birth_date: editingStudent.birth_date,
+            address: editingStudent.address,
+            emergency_contact: editingStudent.emergency_contact,
+            emergency_relationship: editingStudent.emergency_relationship,
+            is_active: editingStudent.is_active
+          })
+          .eq('id', editingStudent.id);
+          
+        if (error) throw error;
+      } else {
+        // 新規追加
+        const { error } = await supabase
+          .from('students')
+          .insert([{
+            name: editingStudent.name,
+            furigana: editingStudent.furigana,
+            birth_date: editingStudent.birth_date,
+            address: editingStudent.address,
+            emergency_contact: editingStudent.emergency_contact,
+            emergency_relationship: editingStudent.emergency_relationship,
+            is_active: true,
+            has_rental_bike: false
+          }]);
+          
+        if (error) throw error;
+      }
       await fetchStudents();
       setEditingStudent(null);
     } catch (err) {
@@ -132,11 +150,20 @@ export default function Home() {
             生徒名簿 <span className="text-slate-700 block md:inline md:ml-2">/ Students</span>
           </h1>
         </div>
-        <div className="text-right">
-          <span className="text-slate-400 text-[10px] font-black block mb-2 uppercase tracking-[0.2em]">REGISTERED STUDENTS / 登録数</span>
-          <span className="bg-blue-600 px-6 py-2 rounded-xl text-sm font-black shadow-[0_10px_20px_rgba(37,99,235,0.3)]">
-            {students.filter(s => s.is_active).length} <span className="text-[10px] ml-1">名</span>
-          </span>
+        <div className="flex flex-col sm:flex-row items-start sm:items-end gap-4 text-right">
+          <div className="text-left sm:text-right">
+            <span className="text-slate-400 text-[10px] font-black block mb-2 uppercase tracking-[0.2em]">REGISTERED STUDENTS / 登録数</span>
+            <span className="bg-blue-600 px-6 py-2 rounded-xl text-sm font-black shadow-[0_10px_20px_rgba(37,99,235,0.3)]">
+              {students.filter(s => s.is_active).length} <span className="text-[10px] ml-1">名</span>
+            </span>
+          </div>
+          <button
+            onClick={() => setEditingStudent({ is_active: true })}
+            className="bg-green-600 hover:bg-green-500 text-white px-5 py-2 rounded-xl text-sm font-black shadow-[0_10px_20px_rgba(22,163,74,0.3)] transition-all flex items-center justify-center gap-2 h-[36px]"
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg>
+            生徒追加
+          </button>
         </div>
       </div>
 
@@ -269,7 +296,9 @@ export default function Home() {
         <div className="fixed inset-0 z-[100] bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-slate-900 border border-slate-700 rounded-3xl w-full max-w-lg overflow-hidden shadow-2xl flex flex-col max-h-[90vh]">
             <div className="p-6 border-b border-slate-800/50 flex items-center justify-between bg-slate-800/20">
-              <h2 className="text-xl font-black italic tracking-tighter text-blue-400">EDIT STUDENT</h2>
+              <h2 className="text-xl font-black italic tracking-tighter text-blue-400">
+                {editingStudent.id ? 'EDIT STUDENT' : 'ADD STUDENT'}
+              </h2>
               <button 
                 onClick={() => setEditingStudent(null)}
                 className="w-8 h-8 rounded-full bg-slate-800 hover:bg-slate-700 flex items-center justify-center text-slate-400 transition-colors"
@@ -338,22 +367,24 @@ export default function Home() {
               </div>
 
               {/* 退会処理エリア */}
-              <div className="mt-8 pt-6 border-t border-slate-800 flex items-center justify-between">
-                <div>
-                  <p className="text-xs font-bold text-white mb-1">在籍の管理</p>
-                  <p className="text-[10px] text-slate-500">退会済みにすると名簿一覧などで薄く表示され、登録数に含まれなくなります。</p>
+              {editingStudent.id && (
+                <div className="mt-8 pt-6 border-t border-slate-800 flex items-center justify-between">
+                  <div>
+                    <p className="text-xs font-bold text-white mb-1">在籍の管理</p>
+                    <p className="text-[10px] text-slate-500">退会済みにすると名簿一覧などで薄く表示され、登録数に含まれなくなります。</p>
+                  </div>
+                  <button
+                    onClick={handleStatusToggle}
+                    className={`ml-4 px-4 py-2 rounded-xl text-xs font-black tracking-widest flex items-center whitespace-nowrap transition-colors border ${
+                      editingStudent.is_active 
+                        ? 'bg-red-500/10 text-red-500 border-red-500/30 hover:bg-red-500/20' 
+                        : 'bg-green-500/10 text-green-500 border-green-500/30 hover:bg-green-500/20'
+                    }`}
+                  >
+                    {editingStudent.is_active ? '退会にする' : '在籍に戻す'}
+                  </button>
                 </div>
-                <button
-                  onClick={handleStatusToggle}
-                  className={`ml-4 px-4 py-2 rounded-xl text-xs font-black tracking-widest flex items-center whitespace-nowrap transition-colors border ${
-                    editingStudent.is_active 
-                      ? 'bg-red-500/10 text-red-500 border-red-500/30 hover:bg-red-500/20' 
-                      : 'bg-green-500/10 text-green-500 border-green-500/30 hover:bg-green-500/20'
-                  }`}
-                >
-                  {editingStudent.is_active ? '退会にする' : '在籍に戻す'}
-                </button>
-              </div>
+              )}
             </div>
 
             <div className="p-6 border-t border-slate-800/50 bg-slate-800/20 flex items-center gap-3">
