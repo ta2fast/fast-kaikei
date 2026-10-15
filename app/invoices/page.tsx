@@ -401,7 +401,7 @@ function InvoicePreview({
             <tr>
               {[
                 { title: "No.", align: "center", bg: "linear-gradient(90deg, #1e1e1e 0%, #1e2632 100%)" },
-                { title: "項目名 / 摘要", align: "left", bg: "linear-gradient(90deg, #1e2632 0%, #163e64 100%)" },
+                { title: "項目名 / 摘要", align: "center", bg: "linear-gradient(90deg, #1e2632 0%, #163e64 100%)" },
                 { title: "数量", align: "center", bg: "linear-gradient(90deg, #163e64 0%, #12558f 100%)" },
                 { title: "単価（税込）", align: "center", bg: "linear-gradient(90deg, #12558f 0%, #147ec2 100%)" },
                 { title: "金額（税込）", align: "center", bg: "linear-gradient(90deg, #147ec2 0%, #1ba7e6 100%)" },
