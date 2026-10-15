@@ -287,36 +287,20 @@ function InvoicePreview({
               color: "#222",
             }}
           >
-            {/* F.A.S.T. ロゴ風 */}
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "3mm",
-                marginBottom: "2mm",
-              }}
-            >
-              {/* ギアアイコン（SVG） */}
-              <svg width="36" height="36" viewBox="0 0 36 36" fill="none">
-                <circle cx="18" cy="18" r="17" stroke={BLUE} strokeWidth="2" fill="none" />
-                <circle cx="18" cy="18" r="7" stroke={BLUE} strokeWidth="1.5" fill="none" />
-                {[0,45,90,135,180,225,270,315].map((deg, i) => {
-                  const rad = (deg * Math.PI) / 180;
-                  const x1 = 18 + 8 * Math.cos(rad);
-                  const y1 = 18 + 8 * Math.sin(rad);
-                  const x2 = 18 + 15 * Math.cos(rad);
-                  const y2 = 18 + 15 * Math.sin(rad);
-                  return <line key={i} x1={x1} y1={y1} x2={x2} y2={y2} stroke={BLUE} strokeWidth="2.5" strokeLinecap="round" />;
-                })}
-              </svg>
-              <div>
-                <div style={{ fontSize: "15pt", fontWeight: 900, color: BLUE_DARK, letterSpacing: "0.1em" }}>
-                  F.A.S.T.
-                </div>
-                <div style={{ fontSize: "6.5pt", color: "#666", letterSpacing: "0.1em", fontWeight: "bold" }}>
-                  {ISSUER.sub}
-                </div>
-              </div>
+            {/* F.A.S.T. 公式ロゴ画像 */}
+            <div style={{ marginBottom: "2mm" }}>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src="/logo.png"
+                alt="F.A.S.T. BMX ASSOCIATION"
+                style={{
+                  height: "28mm",
+                  width: "auto",
+                  maxWidth: "68mm",
+                  objectFit: "contain",
+                  display: "block",
+                }}
+              />
             </div>
 
             <div style={{ lineHeight: 1.75, color: "#333", paddingLeft: "1mm" }}>
@@ -874,28 +858,7 @@ export default function InvoicesPage() {
 
   return (
     <>
-      {/* 印刷用グローバルスタイル */}
-      <style>{`
-        @media print {
-          .no-print-overlay { display: none !important; }
-          .no-print { display: none !important; }
-          body > * { display: none !important; }
-          #invoice-print-area {
-            display: block !important;
-            position: fixed !important;
-            inset: 0 !important;
-            width: 210mm !important;
-            min-height: 297mm !important;
-            max-height: none !important;
-            overflow: visible !important;
-            box-shadow: none !important;
-            z-index: 99999 !important;
-            -webkit-print-color-adjust: exact !important;
-            print-color-adjust: exact !important;
-          }
-          @page { size: A4 portrait; margin: 0; }
-        }
-      `}</style>
+      {/* 印刷スタイルは globals.css の @media print で管理 */}
 
       {/* Toast */}
       {toastMsg && (
