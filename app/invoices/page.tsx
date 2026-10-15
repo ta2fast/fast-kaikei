@@ -40,7 +40,7 @@ const ISSUER = {
   bankName: "福井銀行 鯖江支店",
   bankType: "普通",
   bankNumber: "6062304",
-  bankKana: "ファスト",
+  bankKana: "フアスト",
   bankEn: "FAST",
 };
 
