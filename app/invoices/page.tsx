@@ -100,6 +100,9 @@ function InvoicePreview({
   items: InvoiceItem[];
   onClose: () => void;
 }) {
+  const [showTitle, setShowTitle] = useState(Boolean(invoice.title));
+  const [showDueDate, setShowDueDate] = useState(Boolean(invoice.due_date));
+
   const subtotal = items.reduce((s, i) => s + Number(i.amount), 0);
   const total = subtotal; // 税込単価なので合計=小計
   const fmt = (n: number) => n.toLocaleString("ja-JP");
@@ -128,21 +131,45 @@ function InvoicePreview({
     overflow: "hidden",
   };
 
-  const BLUE_DARK = "#0d47a1";
-  const BLUE_HEADER_BG = "linear-gradient(90deg, #071e3d 0%, #0d47a1 35%, #009fe3 100%)";
+  // ロゴに基づく黒から青へのグラデーション
+  const LOGO_HEADER_BG = "linear-gradient(90deg, #1e1e1e 0%, #1e293b 25%, #0f4c81 65%, #1ba7e6 100%)";
   const TABLE_BORDER = "#b8d5f3";
-  const LINE_CYAN = "#00a0e9";
+  const LINE_CYAN = "#1ba7e6";
+  const LINE_DARK = "#1e1e1e";
 
   return (
     <div
       className="no-print-overlay fixed inset-0 z-[200] flex flex-col items-center bg-black/85 backdrop-blur-sm overflow-auto"
       style={{ paddingTop: "60px", paddingBottom: "40px" }}
     >
-      {/* 操作ボタン（印刷対象外） */}
+      {/* 操作ボタン・表示切り替え（印刷対象外） */}
       <div
-        className="no-print fixed top-3 left-1/2 flex gap-3 z-10"
+        className="no-print fixed top-3 left-1/2 flex items-center gap-3 z-10"
         style={{ transform: "translateX(-50%)" }}
       >
+        {/* 件名・支払期限の表示/非表示トグル */}
+        <div className="flex items-center gap-3 bg-slate-900/90 border border-slate-700/80 px-3.5 py-2 rounded-xl shadow-lg backdrop-blur-md">
+          <label className="flex items-center gap-1.5 text-xs text-slate-200 cursor-pointer select-none font-medium hover:text-white transition-colors">
+            <input
+              type="checkbox"
+              checked={showTitle}
+              onChange={(e) => setShowTitle(e.target.checked)}
+              className="rounded accent-blue-500 w-3.5 h-3.5 cursor-pointer"
+            />
+            件名を表示
+          </label>
+          <span className="text-slate-600">|</span>
+          <label className="flex items-center gap-1.5 text-xs text-slate-200 cursor-pointer select-none font-medium hover:text-white transition-colors">
+            <input
+              type="checkbox"
+              checked={showDueDate}
+              onChange={(e) => setShowDueDate(e.target.checked)}
+              className="rounded accent-blue-500 w-3.5 h-3.5 cursor-pointer"
+            />
+            支払期限を表示
+          </label>
+        </div>
+
         <button
           onClick={() => window.print()}
           style={{
@@ -209,13 +236,13 @@ function InvoicePreview({
           </div>
         </div>
 
-        {/* ② ヘッダーバナー「請 求 書」 */}
+        {/* ② ヘッダーバナー「請 求 書」（細身のスマートなバー） */}
         <div
           style={{
-            background: BLUE_HEADER_BG,
+            background: LOGO_HEADER_BG,
             textAlign: "center",
-            padding: "4.5mm 0",
-            marginBottom: "5.5mm",
+            padding: "2.5mm 0",
+            marginBottom: "4.5mm",
             WebkitPrintColorAdjust: "exact",
             printColorAdjust: "exact" as React.CSSProperties["printColorAdjust"],
           }}
@@ -223,10 +250,11 @@ function InvoicePreview({
           <h1
             style={{
               color: "#ffffff",
-              fontSize: "20pt",
+              fontSize: "15.5pt",
               fontWeight: 900,
               letterSpacing: "0.5em",
               margin: 0,
+              lineHeight: 1.25,
             }}
           >
             請　求　書
@@ -242,7 +270,7 @@ function InvoicePreview({
               style={{
                 fontSize: "13.5pt",
                 fontWeight: 900,
-                borderBottom: `2px solid ${BLUE_DARK}`,
+                borderBottom: `2px solid ${LINE_DARK}`,
                 paddingBottom: "1.5mm",
                 marginBottom: "3mm",
                 color: "#111",
@@ -257,8 +285,8 @@ function InvoicePreview({
               下記の通りご請求申し上げます。
             </div>
 
-            {/* 件名 */}
-            {invoice.title && (
+            {/* 件名（非表示切り替え対応） */}
+            {showTitle && invoice.title && (
               <div style={{ fontSize: "8.5pt", color: "#444", marginBottom: "3mm" }}>
                 件名：{invoice.title}
               </div>
@@ -271,7 +299,7 @@ function InvoicePreview({
                 alignItems: "baseline",
                 gap: "3mm",
                 marginTop: "2mm",
-                borderBottom: `2px solid ${BLUE_DARK}`,
+                borderBottom: `2px solid ${LINE_DARK}`,
                 paddingBottom: "1.5mm",
                 WebkitPrintColorAdjust: "exact",
                 printColorAdjust: "exact" as React.CSSProperties["printColorAdjust"],
@@ -282,7 +310,7 @@ function InvoicePreview({
                 style={{
                   fontSize: "20pt",
                   fontWeight: 900,
-                  color: "#071e3d",
+                  color: "#1e1e1e",
                   letterSpacing: "0.02em",
                 }}
               >
@@ -291,8 +319,8 @@ function InvoicePreview({
               <span style={{ fontSize: "10pt", fontWeight: 900, color: "#111" }}>円</span>
             </div>
 
-            {/* お支払期限 */}
-            {invoice.due_date && (
+            {/* お支払期限（非表示切り替え対応） */}
+            {showDueDate && invoice.due_date && (
               <div style={{ fontSize: "8pt", color: "#666", marginTop: "1.5mm" }}>
                 お支払期限：{formatDate(invoice.due_date)}
               </div>
@@ -302,21 +330,21 @@ function InvoicePreview({
           {/* 右：発行者情報 */}
           <div
             style={{
-              minWidth: "70mm",
-              maxWidth: "75mm",
+              minWidth: "68mm",
+              maxWidth: "72mm",
               textAlign: "left",
               fontSize: "8.5pt",
               color: "#222",
             }}
           >
-            {/* F.A.S.T. 公式ロゴ画像 */}
+            {/* F.A.S.T. 公式ロゴ画像（右上は少し控えめで上品なサイズ） */}
             <div style={{ marginBottom: "2.5mm" }}>
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src="/logo.png"
                 alt="F.A.S.T. BMX ASSOCIATION"
                 style={{
-                  width: "65mm",
+                  width: "44mm",
                   maxWidth: "100%",
                   height: "auto",
                   objectFit: "contain",
@@ -328,12 +356,12 @@ function InvoicePreview({
             <div style={{ lineHeight: 1.75, color: "#333", paddingLeft: "1mm" }}>
               <div style={{ fontWeight: 700 }}>F.A.S.T.</div>
               <div>{ISSUER.zip} {ISSUER.address}</div>
-              <div>経理担当：{ISSUER.person}</div>
+              <div>会計担当：{ISSUER.person}</div>
             </div>
           </div>
         </div>
 
-        {/* ④ 請求明細テーブル */}
+        {/* ④ 請求明細テーブル（ロゴの黒から青へのグラデーションヘッダー） */}
         <table
           style={{
             width: "100%",
@@ -353,11 +381,11 @@ function InvoicePreview({
           <thead>
             <tr>
               {[
-                { title: "No.", align: "center", bg: "linear-gradient(90deg, #071e3d 0%, #0b3765 100%)" },
-                { title: "項目名 / 摘要", align: "left", bg: "linear-gradient(90deg, #0b3765 0%, #105296 100%)" },
-                { title: "数量", align: "center", bg: "linear-gradient(90deg, #105296 0%, #126cb6 100%)" },
-                { title: "単価（税込）", align: "center", bg: "linear-gradient(90deg, #126cb6 0%, #0b8bd5 100%)" },
-                { title: "金額（税込）", align: "center", bg: "linear-gradient(90deg, #0b8bd5 0%, #00a4e4 100%)" },
+                { title: "No.", align: "center", bg: "linear-gradient(90deg, #1e1e1e 0%, #1e2632 100%)" },
+                { title: "項目名 / 摘要", align: "left", bg: "linear-gradient(90deg, #1e2632 0%, #163e64 100%)" },
+                { title: "数量", align: "center", bg: "linear-gradient(90deg, #163e64 0%, #12558f 100%)" },
+                { title: "単価（税込）", align: "center", bg: "linear-gradient(90deg, #12558f 0%, #147ec2 100%)" },
+                { title: "金額（税込）", align: "center", bg: "linear-gradient(90deg, #147ec2 0%, #1ba7e6 100%)" },
               ].map((h, i) => (
                 <th
                   key={i}
@@ -366,7 +394,7 @@ function InvoicePreview({
                     WebkitPrintColorAdjust: "exact",
                     printColorAdjust: "exact" as React.CSSProperties["printColorAdjust"],
                     color: "#ffffff",
-                    padding: "2.8mm 2mm",
+                    padding: "2.6mm 2mm",
                     textAlign: h.align as React.CSSProperties["textAlign"],
                     fontWeight: 900,
                     fontSize: "8.5pt",
@@ -523,14 +551,14 @@ function InvoicePreview({
           <div>{ISSUER.bankKana}</div>
         </div>
 
-        {/* ⑦ 公式ロゴの透かし（ウォーターマーク） */}
+        {/* ⑦ 公式ロゴの透かし（より大きく、青色が視認できる程度に少し濃く） */}
         <div
           style={{
             position: "absolute",
-            bottom: "8mm",
-            right: "15mm",
-            width: "125mm",
-            opacity: 0.08,
+            bottom: "4mm",
+            right: "5mm",
+            width: "155mm",
+            opacity: 0.20,
             userSelect: "none",
             pointerEvents: "none",
             WebkitPrintColorAdjust: "exact",
@@ -609,35 +637,70 @@ function InvoiceFormModal({
   const taxAmount = 0; // 税込単価のため0
 
   const handleSave = async (status: Invoice["status"] = "draft") => {
-    if (!recipientName || !title) {
-      alert("請求先と件名は必須です。");
+    if (!recipientName) {
+      alert("請求先名称は必須です。");
       return;
     }
     setSaving(true);
     try {
+      // DBがNOT NULL制約の場合に備え、未指定時は発行日を使用
+      const effectiveDueDate = dueDate || issueDate;
+      const effectiveTitle = title || "";
+
       if (initial) {
         const { error } = await supabase
           .from("invoices")
-          .update({ issue_date: issueDate, due_date: dueDate, recipient_name: recipientName, title, total_amount: totalAmount, tax_amount: taxAmount, status })
+          .update({
+            issue_date: issueDate,
+            due_date: effectiveDueDate,
+            recipient_name: recipientName,
+            title: effectiveTitle,
+            total_amount: totalAmount,
+            tax_amount: taxAmount,
+            status,
+          })
           .eq("id", initial.id);
         if (error) throw error;
         await supabase.from("invoice_items").delete().eq("invoice_id", initial.id);
         if (items.length > 0) {
           const { error: ie } = await supabase.from("invoice_items").insert(
-            items.map((item) => ({ invoice_id: initial.id, item_description: item.item_description, quantity: Number(item.quantity), unit: item.unit, unit_price: Number(item.unit_price), amount: Number(item.amount) }))
+            items.map((item) => ({
+              invoice_id: initial.id,
+              item_description: item.item_description,
+              quantity: Number(item.quantity),
+              unit: item.unit,
+              unit_price: Number(item.unit_price),
+              amount: Number(item.amount),
+            }))
           );
           if (ie) throw ie;
         }
       } else {
         const { data: inv, error } = await supabase
           .from("invoices")
-          .insert({ invoice_number: invoiceNumber, issue_date: issueDate, due_date: dueDate, recipient_name: recipientName, title, total_amount: totalAmount, tax_amount: taxAmount, status })
+          .insert({
+            invoice_number: invoiceNumber,
+            issue_date: issueDate,
+            due_date: effectiveDueDate,
+            recipient_name: recipientName,
+            title: effectiveTitle,
+            total_amount: totalAmount,
+            tax_amount: taxAmount,
+            status,
+          })
           .select()
           .single();
         if (error) throw error;
         if (items.length > 0) {
           const { error: ie } = await supabase.from("invoice_items").insert(
-            items.map((item) => ({ invoice_id: inv.id, item_description: item.item_description, quantity: Number(item.quantity), unit: item.unit, unit_price: Number(item.unit_price), amount: Number(item.amount) }))
+            items.map((item) => ({
+              invoice_id: inv.id,
+              item_description: item.item_description,
+              quantity: Number(item.quantity),
+              unit: item.unit,
+              unit_price: Number(item.unit_price),
+              amount: Number(item.amount),
+            }))
           );
           if (ie) throw ie;
         }
@@ -652,7 +715,15 @@ function InvoiceFormModal({
     }
   };
 
-  const previewInvoice: Partial<Invoice> = { invoice_number: invoiceNumber, issue_date: issueDate, due_date: dueDate, recipient_name: recipientName, title, total_amount: totalAmount, tax_amount: taxAmount };
+  const previewInvoice: Partial<Invoice> = {
+    invoice_number: invoiceNumber,
+    issue_date: issueDate,
+    due_date: dueDate,
+    recipient_name: recipientName,
+    title,
+    total_amount: totalAmount,
+    tax_amount: taxAmount,
+  };
 
   return (
     <>
@@ -684,7 +755,18 @@ function InvoiceFormModal({
                   className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2.5 text-white text-sm focus:outline-none focus:border-blue-500 transition-colors" />
               </div>
               <div>
-                <label className="block text-xs font-black text-slate-400 uppercase tracking-wider mb-1.5">お支払期限</label>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="block text-xs font-black text-slate-400 uppercase tracking-wider">お支払期限（任意）</label>
+                  {dueDate && (
+                    <button
+                      type="button"
+                      onClick={() => setDueDate("")}
+                      className="text-[11px] text-rose-400 hover:text-rose-300 font-bold"
+                    >
+                      クリア（非表示）
+                    </button>
+                  )}
+                </div>
                 <input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)}
                   className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2.5 text-white text-sm focus:outline-none focus:border-blue-500 transition-colors" />
               </div>
@@ -695,9 +777,20 @@ function InvoiceFormModal({
                   className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2.5 text-white text-sm focus:outline-none focus:border-blue-500 transition-colors placeholder:text-slate-600" />
               </div>
               <div className="sm:col-span-2">
-                <label className="block text-xs font-black text-slate-400 uppercase tracking-wider mb-1.5">件名</label>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="block text-xs font-black text-slate-400 uppercase tracking-wider">件名（任意）</label>
+                  {title && (
+                    <button
+                      type="button"
+                      onClick={() => setTitle("")}
+                      className="text-[11px] text-rose-400 hover:text-rose-300 font-bold"
+                    >
+                      クリア（非表示）
+                    </button>
+                  )}
+                </div>
                 <input type="text" value={title} onChange={(e) => setTitle(e.target.value)}
-                  placeholder="例: BMX体験会＆パフォーマンスショー費用として"
+                  placeholder="例: BMX体験会＆パフォーマンスショー費用として（空欄なら非表示）"
                   className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2.5 text-white text-sm focus:outline-none focus:border-blue-500 transition-colors placeholder:text-slate-600" />
               </div>
             </div>
