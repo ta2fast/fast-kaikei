@@ -280,58 +280,33 @@ function InvoicePreview({
           {/* 右：発行者情報 */}
           <div
             style={{
-              minWidth: "68mm",
-              maxWidth: "72mm",
+              minWidth: "72mm",
+              maxWidth: "76mm",
               textAlign: "left",
               fontSize: "8.5pt",
               color: "#222",
             }}
           >
-            {/* F.A.S.T. 公式ロゴ画像 */}
-            <div style={{ marginBottom: "2mm" }}>
+            {/* F.A.S.T. 公式ロゴ画像（拡大調整） */}
+            <div style={{ marginBottom: "3mm" }}>
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src="/logo.png"
                 alt="F.A.S.T. BMX ASSOCIATION"
                 style={{
-                  height: "28mm",
-                  width: "auto",
-                  maxWidth: "68mm",
+                  width: "70mm",
+                  maxWidth: "100%",
+                  height: "auto",
                   objectFit: "contain",
                   display: "block",
                 }}
               />
             </div>
 
-            <div style={{ lineHeight: 1.75, color: "#333", paddingLeft: "1mm" }}>
-              <div>F.A.S.T.</div>
+            <div style={{ lineHeight: 1.8, color: "#333", paddingLeft: "1mm" }}>
+              <div style={{ fontWeight: 700 }}>F.A.S.T.</div>
               <div>{ISSUER.zip} {ISSUER.address}</div>
               <div>経理担当：{ISSUER.person}</div>
-            </div>
-
-            {/* 印鑑風エレメント */}
-            <div style={{ marginTop: "2mm", display: "flex", justifyContent: "flex-end" }}>
-              <div
-                style={{
-                  width: "24mm",
-                  height: "24mm",
-                  border: "2px solid #cc2200",
-                  borderRadius: "50%",
-                  display: "flex",
-                  flexDirection: "column",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  color: "#cc2200",
-                  fontSize: "7pt",
-                  fontWeight: 900,
-                  lineHeight: 1.4,
-                  WebkitPrintColorAdjust: "exact",
-                  printColorAdjust: "exact" as React.CSSProperties["printColorAdjust"],
-                }}
-              >
-                <div>F.A.S.T.</div>
-                <div style={{ fontSize: "6pt" }}>谷口</div>
-              </div>
             </div>
           </div>
         </div>
@@ -519,24 +494,30 @@ function InvoicePreview({
           </div>
         </div>
 
-        {/* ⑦ ウォーターマーク */}
+        {/* ⑦ 公式ロゴの透かし（ウォーターマーク） */}
         <div
           style={{
             position: "absolute",
-            bottom: "18mm",
-            right: "12mm",
-            fontSize: "36pt",
-            fontWeight: 900,
-            color: "rgba(26,111,196,0.06)",
-            letterSpacing: "0.1em",
+            bottom: "16mm",
+            right: "16mm",
+            width: "55mm",
+            opacity: 0.1,
             userSelect: "none",
             pointerEvents: "none",
-            fontStyle: "italic",
             WebkitPrintColorAdjust: "exact",
             printColorAdjust: "exact" as React.CSSProperties["printColorAdjust"],
           }}
         >
-          F.A.S.T.
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/logo.png"
+            alt=""
+            style={{
+              width: "100%",
+              height: "auto",
+              display: "block",
+            }}
+          />
         </div>
       </div>
     </div>
