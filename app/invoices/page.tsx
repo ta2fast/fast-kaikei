@@ -128,12 +128,10 @@ function InvoicePreview({
     overflow: "hidden",
   };
 
-  const BLUE = "#1a6fc4";
-  const BLUE_DARK = "#1355a0";
-  const BLUE_HEADER_BG = "linear-gradient(135deg, #1a6fc4 0%, #0e4d8c 100%)";
-  const TABLE_HEADER_BG = "#2176c2";
-  const BORDER_COLOR = "#c0c0c0";
-  const TABLE_BORDER = "#a0bcd8";
+  const BLUE_DARK = "#0d47a1";
+  const BLUE_HEADER_BG = "linear-gradient(90deg, #071e3d 0%, #0d47a1 35%, #009fe3 100%)";
+  const TABLE_BORDER = "#b8d5f3";
+  const LINE_CYAN = "#00a0e9";
 
   return (
     <div
@@ -185,16 +183,29 @@ function InvoicePreview({
       <div id="invoice-print-area" style={sheetStyle}>
 
         {/* ① 右上：請求日・請求書No. */}
-        <div style={{ textAlign: "right", marginBottom: "2mm", fontSize: "9pt" }}>
-          <div style={{ display: "flex", justifyContent: "flex-end", gap: "8mm" }}>
-            <span>
-              <span style={{ color: "#555" }}>請求日：</span>
-              <span style={{ fontWeight: "bold" }}>{formatDate(invoice.issue_date || "")}</span>
-            </span>
-            <span>
-              <span style={{ color: "#555" }}>請求書No.：</span>
-              <span style={{ fontWeight: "bold" }}>{invoice.invoice_number || ""}</span>
-            </span>
+        <div style={{ textAlign: "right", marginBottom: "3mm", fontSize: "9pt" }}>
+          <div style={{ display: "inline-flex", flexDirection: "column", alignItems: "flex-end", gap: "1.5mm" }}>
+            <div style={{ display: "flex", gap: "4mm" }}>
+              <span style={{ color: "#333", fontWeight: 700 }}>請求日：</span>
+              <span style={{ minWidth: "35mm", textAlign: "right", color: "#111", fontWeight: 700 }}>
+                {formatDate(invoice.issue_date || "")}
+              </span>
+            </div>
+            <div
+              style={{
+                display: "flex",
+                gap: "4mm",
+                borderBottom: `2px solid ${LINE_CYAN}`,
+                paddingBottom: "1mm",
+                WebkitPrintColorAdjust: "exact",
+                printColorAdjust: "exact" as React.CSSProperties["printColorAdjust"],
+              }}
+            >
+              <span style={{ color: "#333", fontWeight: 700 }}>請求書No.：</span>
+              <span style={{ minWidth: "35mm", textAlign: "right", color: "#111", fontWeight: 700 }}>
+                {invoice.invoice_number || ""}
+              </span>
+            </div>
           </div>
         </div>
 
@@ -202,10 +213,9 @@ function InvoicePreview({
         <div
           style={{
             background: BLUE_HEADER_BG,
-            borderRadius: "4px",
             textAlign: "center",
-            padding: "5mm 0",
-            marginBottom: "5mm",
+            padding: "4.5mm 0",
+            marginBottom: "5.5mm",
             WebkitPrintColorAdjust: "exact",
             printColorAdjust: "exact" as React.CSSProperties["printColorAdjust"],
           }}
@@ -217,7 +227,6 @@ function InvoicePreview({
               fontWeight: 900,
               letterSpacing: "0.5em",
               margin: 0,
-              textShadow: "0 1px 3px rgba(0,0,0,0.3)",
             }}
           >
             請　求　書
@@ -228,22 +237,24 @@ function InvoicePreview({
         <div style={{ display: "flex", gap: "6mm", marginBottom: "5mm", alignItems: "flex-start" }}>
 
           {/* 左：請求先 */}
-          <div style={{ flex: 1 }}>
+          <div style={{ flex: 1, paddingRight: "2mm" }}>
             <div
               style={{
-                fontSize: "14pt",
+                fontSize: "13.5pt",
                 fontWeight: 900,
-                borderBottom: `2px solid ${BLUE}`,
-                paddingBottom: "1mm",
-                marginBottom: "2mm",
+                borderBottom: `2px solid ${BLUE_DARK}`,
+                paddingBottom: "1.5mm",
+                marginBottom: "3mm",
                 color: "#111",
+                WebkitPrintColorAdjust: "exact",
+                printColorAdjust: "exact" as React.CSSProperties["printColorAdjust"],
               }}
             >
               {invoice.recipient_name || "　"}
             </div>
-            <div style={{ fontSize: "8.5pt", color: "#444", marginBottom: "3mm", lineHeight: 1.7 }}>
+            <div style={{ fontSize: "8.5pt", color: "#666", marginBottom: "4mm", lineHeight: 1.75 }}>
               平素より大変お世話になっております。<br />
-              下記の通り ご請求申し上げます。
+              下記の通りご請求申し上げます。
             </div>
 
             {/* 件名 */}
@@ -254,24 +265,35 @@ function InvoicePreview({
             )}
 
             {/* 請求金額ボックス */}
-            <div style={{ display: "flex", alignItems: "baseline", gap: "3mm", marginTop: "2mm" }}>
-              <span style={{ fontSize: "9pt", fontWeight: "bold", color: "#333" }}>請求金額：</span>
+            <div
+              style={{
+                display: "flex",
+                alignItems: "baseline",
+                gap: "3mm",
+                marginTop: "2mm",
+                borderBottom: `2px solid ${BLUE_DARK}`,
+                paddingBottom: "1.5mm",
+                WebkitPrintColorAdjust: "exact",
+                printColorAdjust: "exact" as React.CSSProperties["printColorAdjust"],
+              }}
+            >
+              <span style={{ fontSize: "9.5pt", fontWeight: 900, color: "#111" }}>請求金額：</span>
               <span
                 style={{
-                  fontSize: "18pt",
+                  fontSize: "20pt",
                   fontWeight: 900,
-                  color: "#111",
+                  color: "#071e3d",
                   letterSpacing: "0.02em",
                 }}
               >
                 {fmt(total)}
               </span>
-              <span style={{ fontSize: "10pt", fontWeight: "bold", color: "#333" }}>円</span>
+              <span style={{ fontSize: "10pt", fontWeight: 900, color: "#111" }}>円</span>
             </div>
 
             {/* お支払期限 */}
             {invoice.due_date && (
-              <div style={{ fontSize: "8pt", color: "#666", marginTop: "1mm" }}>
+              <div style={{ fontSize: "8pt", color: "#666", marginTop: "1.5mm" }}>
                 お支払期限：{formatDate(invoice.due_date)}
               </div>
             )}
@@ -280,21 +302,21 @@ function InvoicePreview({
           {/* 右：発行者情報 */}
           <div
             style={{
-              minWidth: "72mm",
-              maxWidth: "76mm",
+              minWidth: "70mm",
+              maxWidth: "75mm",
               textAlign: "left",
               fontSize: "8.5pt",
               color: "#222",
             }}
           >
-            {/* F.A.S.T. 公式ロゴ画像（拡大調整） */}
-            <div style={{ marginBottom: "3mm" }}>
+            {/* F.A.S.T. 公式ロゴ画像 */}
+            <div style={{ marginBottom: "2.5mm" }}>
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src="/logo.png"
                 alt="F.A.S.T. BMX ASSOCIATION"
                 style={{
-                  width: "70mm",
+                  width: "65mm",
                   maxWidth: "100%",
                   height: "auto",
                   objectFit: "contain",
@@ -303,7 +325,7 @@ function InvoicePreview({
               />
             </div>
 
-            <div style={{ lineHeight: 1.8, color: "#333", paddingLeft: "1mm" }}>
+            <div style={{ lineHeight: 1.75, color: "#333", paddingLeft: "1mm" }}>
               <div style={{ fontWeight: 700 }}>F.A.S.T.</div>
               <div>{ISSUER.zip} {ISSUER.address}</div>
               <div>経理担当：{ISSUER.person}</div>
@@ -330,23 +352,29 @@ function InvoicePreview({
           </colgroup>
           <thead>
             <tr>
-              {["No.", "項目名 / 摘要", "数量", "単価（税込）", "金額（税込）"].map((h, i) => (
+              {[
+                { title: "No.", align: "center", bg: "linear-gradient(90deg, #071e3d 0%, #0b3765 100%)" },
+                { title: "項目名 / 摘要", align: "left", bg: "linear-gradient(90deg, #0b3765 0%, #105296 100%)" },
+                { title: "数量", align: "center", bg: "linear-gradient(90deg, #105296 0%, #126cb6 100%)" },
+                { title: "単価（税込）", align: "center", bg: "linear-gradient(90deg, #126cb6 0%, #0b8bd5 100%)" },
+                { title: "金額（税込）", align: "center", bg: "linear-gradient(90deg, #0b8bd5 0%, #00a4e4 100%)" },
+              ].map((h, i) => (
                 <th
                   key={i}
                   style={{
-                    background: TABLE_HEADER_BG,
+                    background: h.bg,
                     WebkitPrintColorAdjust: "exact",
                     printColorAdjust: "exact" as React.CSSProperties["printColorAdjust"],
                     color: "#ffffff",
-                    padding: "2.5mm 2mm",
-                    textAlign: i === 0 ? "center" : i >= 2 ? "center" : "left",
+                    padding: "2.8mm 2mm",
+                    textAlign: h.align as React.CSSProperties["textAlign"],
                     fontWeight: 900,
                     fontSize: "8.5pt",
                     border: `1px solid ${TABLE_BORDER}`,
                     letterSpacing: "0.02em",
                   }}
                 >
-                  {h}
+                  {h.title}
                 </th>
               ))}
             </tr>
@@ -361,10 +389,10 @@ function InvoicePreview({
                     padding: "2.5mm 2mm",
                     textAlign: "center",
                     color: item.item_description ? "#111" : "transparent",
-                    backgroundColor: idx % 2 === 0 ? "#ffffff" : "#f4f8fd",
+                    backgroundColor: idx % 2 === 0 ? "#ffffff" : "#f7faff",
                     WebkitPrintColorAdjust: "exact",
                     printColorAdjust: "exact" as React.CSSProperties["printColorAdjust"],
-                    height: "9mm",
+                    height: "9.5mm",
                   }}
                 >
                   {item.item_description ? idx + 1 : ""}
@@ -375,10 +403,10 @@ function InvoicePreview({
                     border: `1px solid ${TABLE_BORDER}`,
                     padding: "2.5mm 3mm",
                     color: "#111",
-                    backgroundColor: idx % 2 === 0 ? "#ffffff" : "#f4f8fd",
+                    backgroundColor: idx % 2 === 0 ? "#ffffff" : "#f7faff",
                     WebkitPrintColorAdjust: "exact",
                     printColorAdjust: "exact" as React.CSSProperties["printColorAdjust"],
-                    height: "9mm",
+                    height: "9.5mm",
                   }}
                 >
                   {item.item_description}
@@ -390,10 +418,10 @@ function InvoicePreview({
                     padding: "2.5mm 2mm",
                     textAlign: "center",
                     color: "#111",
-                    backgroundColor: idx % 2 === 0 ? "#ffffff" : "#f4f8fd",
+                    backgroundColor: idx % 2 === 0 ? "#ffffff" : "#f7faff",
                     WebkitPrintColorAdjust: "exact",
                     printColorAdjust: "exact" as React.CSSProperties["printColorAdjust"],
-                    height: "9mm",
+                    height: "9.5mm",
                   }}
                 >
                   {item.item_description ? item.quantity : ""}
@@ -405,10 +433,10 @@ function InvoicePreview({
                     padding: "2.5mm 3mm",
                     textAlign: "right",
                     color: "#111",
-                    backgroundColor: idx % 2 === 0 ? "#ffffff" : "#f4f8fd",
+                    backgroundColor: idx % 2 === 0 ? "#ffffff" : "#f7faff",
                     WebkitPrintColorAdjust: "exact",
                     printColorAdjust: "exact" as React.CSSProperties["printColorAdjust"],
-                    height: "9mm",
+                    height: "9.5mm",
                   }}
                 >
                   {item.item_description ? fmt(item.unit_price) : ""}
@@ -420,10 +448,10 @@ function InvoicePreview({
                     padding: "2.5mm 3mm",
                     textAlign: "right",
                     color: "#111",
-                    backgroundColor: idx % 2 === 0 ? "#ffffff" : "#f4f8fd",
+                    backgroundColor: idx % 2 === 0 ? "#ffffff" : "#f7faff",
                     WebkitPrintColorAdjust: "exact",
                     printColorAdjust: "exact" as React.CSSProperties["printColorAdjust"],
-                    height: "9mm",
+                    height: "9.5mm",
                   }}
                 >
                   {item.item_description ? fmt(item.amount) : ""}
@@ -445,7 +473,7 @@ function InvoicePreview({
                   fontWeight: 900,
                   fontSize: "9.5pt",
                   color: "#111",
-                  borderTop: `2px solid ${BLUE}`,
+                  backgroundColor: "#ffffff",
                   WebkitPrintColorAdjust: "exact",
                   printColorAdjust: "exact" as React.CSSProperties["printColorAdjust"],
                 }}
@@ -460,7 +488,7 @@ function InvoicePreview({
                   fontWeight: 900,
                   fontSize: "10pt",
                   color: "#111",
-                  borderTop: `2px solid ${BLUE}`,
+                  backgroundColor: "#ffffff",
                   WebkitPrintColorAdjust: "exact",
                   printColorAdjust: "exact" as React.CSSProperties["printColorAdjust"],
                 }}
@@ -471,37 +499,38 @@ function InvoicePreview({
           </tbody>
         </table>
 
-        {/* ⑤ 水平線 */}
-        <div style={{ borderTop: `1px solid ${BORDER_COLOR}`, margin: "5mm 0" }} />
+        {/* ⑤ 水色アクセントライン */}
+        <div
+          style={{
+            borderTop: `2px solid ${LINE_CYAN}`,
+            margin: "6mm 0 4mm 0",
+            WebkitPrintColorAdjust: "exact",
+            printColorAdjust: "exact" as React.CSSProperties["printColorAdjust"],
+          }}
+        />
 
         {/* ⑥ お振込先 */}
         <div
           style={{
-            border: `1px solid ${BORDER_COLOR}`,
-            borderRadius: "4px",
-            padding: "3mm 4mm",
-            display: "inline-block",
-            minWidth: "65mm",
-            fontSize: "9pt",
-            lineHeight: 1.9,
+            fontSize: "8.5pt",
+            lineHeight: 1.85,
+            color: "#333",
           }}
         >
-          <div style={{ fontWeight: 900, marginBottom: "1mm", color: "#222" }}>【お振込先】</div>
-          <div style={{ color: "#333" }}>
-            {ISSUER.bankName}<br />
-            （{ISSUER.bankType}）{ISSUER.bankNumber}<br />
-            {ISSUER.bankKana} / {ISSUER.bankEn}
-          </div>
+          <div style={{ fontWeight: 900, marginBottom: "1.5mm", color: "#111" }}>【お振込先】</div>
+          <div style={{ fontWeight: 700, color: "#111" }}>{ISSUER.bankName}</div>
+          <div>（{ISSUER.bankType}）{ISSUER.bankNumber}</div>
+          <div>{ISSUER.bankKana}</div>
         </div>
 
         {/* ⑦ 公式ロゴの透かし（ウォーターマーク） */}
         <div
           style={{
             position: "absolute",
-            bottom: "14mm",
-            right: "16mm",
-            width: "70mm",
-            opacity: 0.09,
+            bottom: "8mm",
+            right: "15mm",
+            width: "125mm",
+            opacity: 0.08,
             userSelect: "none",
             pointerEvents: "none",
             WebkitPrintColorAdjust: "exact",
