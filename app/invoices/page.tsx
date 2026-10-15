@@ -498,10 +498,10 @@ function InvoicePreview({
         <div
           style={{
             position: "absolute",
-            bottom: "16mm",
+            bottom: "14mm",
             right: "16mm",
-            width: "55mm",
-            opacity: 0.1,
+            width: "70mm",
+            opacity: 0.09,
             userSelect: "none",
             pointerEvents: "none",
             WebkitPrintColorAdjust: "exact",
