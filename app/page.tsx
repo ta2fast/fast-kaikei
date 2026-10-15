@@ -28,6 +28,12 @@ const menuItems = [
     sublabel: "Accounting",
   },
   {
+    href: "/invoices",
+    emoji: "🧾",
+    label: "請求書管理",
+    sublabel: "Invoices",
+  },
+  {
     href: "/events",
     emoji: "📋",
     label: "イベント情報",

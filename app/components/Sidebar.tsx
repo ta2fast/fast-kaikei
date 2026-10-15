@@ -8,6 +8,7 @@ const navItems = [
   { href: "/attendance", label: "📅 出欠管理", short: "Attendance" },
   { href: "/fees", label: "💳 月謝管理", short: "Fees" },
   { href: "/accounting", label: "💰 会計管理", short: "Accounting" },
+  { href: "/invoices", label: "🧾 請求書管理", short: "Invoices" },
   { href: "/events", label: "📋 イベント情報", short: "Events" },
   { href: "/teachers", label: "👨‍🏫 講師・スタッフ", short: "Teachers" },
   { href: "/settings", label: "⚙️ システム設定", short: "Settings" },

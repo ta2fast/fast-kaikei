@@ -50,3 +50,46 @@ body {
     font-size: 16px; /* Prevents iOS zoom on focus */
   }
 }
+
+/* ─────────────────────────────────────────────
+   請求書印刷スタイル
+   ───────────────────────────────────────────── */
+@media print {
+  /* すべての画面要素を非表示 */
+  body * {
+    visibility: hidden !important;
+  }
+
+  /* 印刷対象エリアのみ表示 */
+  #invoice-print-area,
+  #invoice-print-area * {
+    visibility: visible !important;
+  }
+
+  #invoice-print-area {
+    position: fixed !important;
+    inset: 0 !important;
+    width: 210mm !important;
+    min-height: 297mm !important;
+    max-height: none !important;
+    overflow: visible !important;
+    box-shadow: none !important;
+    background: #fff !important;
+    color: #000 !important;
+    padding: 15mm 18mm !important;
+    font-family: 'Noto Serif JP', 'Yu Mincho', 'MS Mincho', serif !important;
+    font-size: 10pt !important;
+    line-height: 1.7 !important;
+    z-index: 99999 !important;
+  }
+
+  .no-print {
+    display: none !important;
+  }
+
+  @page {
+    size: A4 portrait;
+    margin: 0;
+  }
+}
+
