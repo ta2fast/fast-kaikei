@@ -266,20 +266,37 @@ function InvoicePreview({
 
           {/* 左：請求先 */}
           <div style={{ flex: 1, paddingRight: "2mm" }}>
-            <div
-              style={{
-                fontSize: "13.5pt",
-                fontWeight: 900,
-                borderBottom: `2px solid ${LINE_DARK}`,
-                paddingBottom: "1.5mm",
-                marginBottom: "3mm",
-                color: "#111",
-                WebkitPrintColorAdjust: "exact",
-                printColorAdjust: "exact" as React.CSSProperties["printColorAdjust"],
-              }}
-            >
-              {invoice.recipient_name || "　"}
+            {/* 宛名書き（文字長さに合わせたアンダーライン・余白＋御中） */}
+            <div style={{ marginBottom: "3.5mm" }}>
+              <div
+                style={{
+                  display: "inline-block",
+                  fontSize: "15pt",
+                  fontWeight: 900,
+                  borderBottom: `2px solid ${LINE_DARK}`,
+                  paddingBottom: "1.5mm",
+                  color: "#111",
+                  letterSpacing: "0.02em",
+                  WebkitPrintColorAdjust: "exact",
+                  printColorAdjust: "exact" as React.CSSProperties["printColorAdjust"],
+                }}
+              >
+                {(() => {
+                  const raw = (invoice.recipient_name || "").trim();
+                  if (!raw) return "　";
+                  if (raw.endsWith("御中")) {
+                    const base = raw.slice(0, -2).trim();
+                    return <>{base}　御中</>;
+                  }
+                  if (raw.endsWith("様")) {
+                    const base = raw.slice(0, -1).trim();
+                    return <>{base}　様</>;
+                  }
+                  return <>{raw}　御中</>;
+                })()}
+              </div>
             </div>
+
             <div style={{ fontSize: "8.5pt", color: "#666", marginBottom: "4mm", lineHeight: 1.75 }}>
               平素より大変お世話になっております。<br />
               下記の通りご請求申し上げます。
@@ -292,31 +309,32 @@ function InvoicePreview({
               </div>
             )}
 
-            {/* 請求金額ボックス */}
-            <div
-              style={{
-                display: "flex",
-                alignItems: "baseline",
-                gap: "3mm",
-                marginTop: "2mm",
-                borderBottom: `2px solid ${LINE_DARK}`,
-                paddingBottom: "1.5mm",
-                WebkitPrintColorAdjust: "exact",
-                printColorAdjust: "exact" as React.CSSProperties["printColorAdjust"],
-              }}
-            >
-              <span style={{ fontSize: "9.5pt", fontWeight: 900, color: "#111" }}>請求金額：</span>
-              <span
+            {/* 請求金額ボックス（テキスト長さに合わせたアンダーライン） */}
+            <div style={{ marginTop: "2mm", marginBottom: "1.5mm" }}>
+              <div
                 style={{
-                  fontSize: "20pt",
-                  fontWeight: 900,
-                  color: "#1e1e1e",
-                  letterSpacing: "0.02em",
+                  display: "inline-flex",
+                  alignItems: "baseline",
+                  gap: "3mm",
+                  borderBottom: `2px solid ${LINE_DARK}`,
+                  paddingBottom: "1.5mm",
+                  WebkitPrintColorAdjust: "exact",
+                  printColorAdjust: "exact" as React.CSSProperties["printColorAdjust"],
                 }}
               >
-                {fmt(total)}
-              </span>
-              <span style={{ fontSize: "10pt", fontWeight: 900, color: "#111" }}>円</span>
+                <span style={{ fontSize: "9.5pt", fontWeight: 900, color: "#111" }}>請求金額：</span>
+                <span
+                  style={{
+                    fontSize: "20pt",
+                    fontWeight: 900,
+                    color: "#1e1e1e",
+                    letterSpacing: "0.02em",
+                  }}
+                >
+                  {fmt(total)}
+                </span>
+                <span style={{ fontSize: "10pt", fontWeight: 900, color: "#111" }}>円</span>
+              </div>
             </div>
 
             {/* お支払期限（非表示切り替え対応） */}
@@ -355,7 +373,8 @@ function InvoicePreview({
 
             <div style={{ lineHeight: 1.75, color: "#333", paddingLeft: "1mm" }}>
               <div style={{ fontWeight: 700 }}>F.A.S.T.</div>
-              <div>{ISSUER.zip} {ISSUER.address}</div>
+              <div>{ISSUER.zip}</div>
+              <div>{ISSUER.address}</div>
               <div>会計担当：{ISSUER.person}</div>
             </div>
           </div>
@@ -537,18 +556,38 @@ function InvoicePreview({
           }}
         />
 
-        {/* ⑥ お振込先 */}
+        {/* ⑥ お振込先（ボックス枠線囲み） */}
         <div
           style={{
+            border: `1.5px solid ${TABLE_BORDER}`,
+            borderRadius: "4px",
+            padding: "3mm 5mm",
+            display: "inline-block",
+            minWidth: "75mm",
+            backgroundColor: "#ffffff",
             fontSize: "8.5pt",
             lineHeight: 1.85,
             color: "#333",
+            WebkitPrintColorAdjust: "exact",
+            printColorAdjust: "exact" as React.CSSProperties["printColorAdjust"],
           }}
         >
           <div style={{ fontWeight: 900, marginBottom: "1.5mm", color: "#111" }}>【お振込先】</div>
           <div style={{ fontWeight: 700, color: "#111" }}>{ISSUER.bankName}</div>
           <div>（{ISSUER.bankType}）{ISSUER.bankNumber}</div>
           <div>{ISSUER.bankKana}</div>
+        </div>
+
+        {/* 振込手数料に関する注意書き */}
+        <div
+          style={{
+            marginTop: "2.5mm",
+            fontSize: "7.5pt",
+            color: "#666",
+            lineHeight: 1.5,
+          }}
+        >
+          ※大変恐れ入りますが、お振込手数料はお客様のご負担にてお願い申し上げます。
         </div>
 
         {/* ⑦ 公式ロゴの透かし（より大きく、青色が視認できる程度に少し濃く） */}
