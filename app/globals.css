@@ -55,41 +55,35 @@ body {
    請求書印刷スタイル
    ───────────────────────────────────────────── */
 @media print {
-  /* すべての画面要素を非表示 */
-  body * {
-    visibility: hidden !important;
-  }
-
-  /* 印刷対象エリアのみ表示 */
-  #invoice-print-area,
-  #invoice-print-area * {
-    visibility: visible !important;
-  }
-
-  #invoice-print-area {
-    position: fixed !important;
-    inset: 0 !important;
-    width: 210mm !important;
-    min-height: 297mm !important;
-    max-height: none !important;
-    overflow: visible !important;
-    box-shadow: none !important;
-    background: #fff !important;
-    color: #000 !important;
-    padding: 15mm 18mm !important;
-    font-family: 'Noto Serif JP', 'Yu Mincho', 'MS Mincho', serif !important;
-    font-size: 10pt !important;
-    line-height: 1.7 !important;
-    z-index: 99999 !important;
-  }
-
-  .no-print {
+  /* 画面UI要素を非表示 */
+  body > div > aside,
+  .no-print,
+  .no-print-overlay {
     display: none !important;
+  }
+
+  /* 背景・枠線を印刷に反映 */
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
   }
 
   @page {
     size: A4 portrait;
     margin: 0;
   }
+
+  /* プレビューのスクロールコンテナを印刷用に展開 */
+  .no-print-overlay {
+    position: static !important;
+    background: none !important;
+    padding: 0 !important;
+  }
+
+  #invoice-print-area {
+    box-shadow: none !important;
+    page-break-after: always;
+  }
 }
+
 
